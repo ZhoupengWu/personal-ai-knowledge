@@ -20,7 +20,7 @@ def createTable(conn: sqlite3.Connection) -> None:
     cur.close()
     conn.commit()
 
-def insertChunk(conn: sqlite3.Connection, text: str, embedding: Tensor, source: str) -> None:
+def insertChunk(conn: sqlite3.Connection, text: str, embedding: np.ndarray, source: str) -> None:
     cur = conn.cursor()
 
     cur.execute("""
