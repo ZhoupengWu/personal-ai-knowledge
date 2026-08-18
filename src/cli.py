@@ -29,7 +29,7 @@ if args.command == "index":
 
     for file_path in folder.glob("*.md"):
         text = file_path.read_text(encoding="utf-8")
-        chunked_text = chunkText(text, 5, 0)
+        chunked_text = chunkText(text, 50, 10)
         embed_chunk = embeddedTexts(model, chunked_text)
 
         for i in range(len(chunked_text)):
@@ -49,6 +49,6 @@ elif args.command == "query":
     result = search(embed_query[0], chunks, args.top_k)
 
     for text, sim, source in result:
-        print(f"{sim} ---> {text} ({source})")
+        print(f"{sim} ---> {text[:100]}... ({source})")
 else:
     parser.print_help()
