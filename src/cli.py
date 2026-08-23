@@ -1,9 +1,12 @@
+import os
 import argparse
 from pathlib import Path
+from dotenv import load_dotenv
 from storage import createConnection, createTable, insertChunk, getAllChunks
 from chunking import chunkText
 from embedding import loadModel, embeddedTexts
 from search import search
+from generation import createClient, generateAnswer
 
 parser = argparse.ArgumentParser(description="Indicizza o ricerca qualcosa")
 subparsers = parser.add_subparsers(dest="command")
@@ -41,15 +44,21 @@ if args.command == "index":
 
     print("DONE")
 elif args.command == "query":
+    query = args.text
+
     model = loadModel()
     conn = createConnection("test.db")
     createTable(conn)
 
-    embed_query = embeddedTexts(model, [args.text])
+    load_dotenv()
+
+    client = createClient(os.getenv("API_KEY"))
+
+    embed_query = embeddedTexts(model, [query])
     chunks = getAllChunks(conn)
     result = search(embed_query[0], chunks, args.top_k)
+    answer = generateAnswer(client, result, query)
 
-    for text, sim, source in result:
-        print(f"{sim} ---> {text[:100]}... ({source})")
+    print(answer)
 else:
     parser.print_help()
