@@ -1,6 +1,5 @@
 import sqlite3
 import numpy as np
-from torch import Tensor
 
 def createConnection(path: str):
     return sqlite3.connect(path)

@@ -9,5 +9,5 @@ def search(query_embedding: np.ndarray, chunks_embedding: list[tuple], top_k = 5
     for text, chunk_emd, source in chunks_embedding:
         sim = cosineSimilarity(query_embedding, chunk_emd)
         data_dim.append((text, sim, source))
-    
+
     return sorted(data_dim, key=lambda x: x[1], reverse=True)[:top_k]

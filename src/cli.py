@@ -14,6 +14,7 @@ index_parser.add_argument("folder")
 query_parser = subparsers.add_parser("query")
 query_parser.add_argument("text")
 query_parser.add_argument("--top-k", type=int, default=5)
+query_parser.add_argument("--mode", choices=["strict", "hybrid"], default="strict")
 
 args = parser.parse_args()
 
@@ -23,7 +24,7 @@ if args.command == "index":
     model = loadModel()
     conn = createConnection("test.db")
     createTable(conn)
-    
+
     folder = Path(args.folder)
     total_counter = len(list(folder.glob("*.md")))
 
