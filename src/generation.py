@@ -11,7 +11,7 @@ def createClient(api_key: str) -> OpenAI:
         base_url="https://api.deepseek.com"
     )
 
-def generateAnswer(client: OpenAI, chunks: list[tuple], question: str, model_name = "deepseek-v4-flash", mode: str = "strict") -> str | None:
+def generateAnswer(client: OpenAI, chunks: list[tuple], question: str, model_name = "deepseek-v4-flash", mode: str = "strict"):
     system_content = SYSTEM_PROMPT[mode]
 
     text = " --- ".join(a[0] for a in chunks)
@@ -28,7 +28,13 @@ def generateAnswer(client: OpenAI, chunks: list[tuple], question: str, model_nam
                 "role": "user",
                 "content": user_content
             }
-        ]
+        ],
+        extra_body={
+            "thinking": {
+                "type": "disabled"
+            }
+        }
     )
+    print(f"\n{response}\n")
 
-    return response.choices[0].message.content
+    return (response.choices[0].message.content, response.usage)

@@ -46,6 +46,11 @@ if args.command == "index":
 elif args.command == "query":
     query = args.text
 
+    if args.mode == "hybrid":
+        print("Modalità hybrid non disponibile. Verrà utilizzato strict")
+
+    mode = "strict" if args.mode == "hybrid" else args.mode
+
     model = loadModel()
     conn = createConnection("test.db")
     createTable(conn)
@@ -57,8 +62,11 @@ elif args.command == "query":
     embed_query = embeddedTexts(model, [query])
     chunks = getAllChunks(conn)
     result = search(embed_query[0], chunks, args.top_k)
-    answer = generateAnswer(client, result, query)
+    answer = generateAnswer(client, result, query, mode=mode)
 
-    print(answer)
+    print(answer[0])
+    print("\n=====")
+    print(f"INPUT = {answer[1].prompt_tokens} token (CACHED = {answer[1].prompt_tokens_details.cached_tokens} token)\nOUTPUT = {answer[1].completion_tokens} token\nTOTAL = {answer[1].total_tokens} token")
+    print("=====")
 else:
     parser.print_help()
