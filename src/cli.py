@@ -2,7 +2,7 @@ import os
 import argparse
 from pathlib import Path
 from dotenv import load_dotenv
-from storage import createConnection, createTable, insertChunk, getAllChunks
+from storage import createConnection, createTable, insertChunk, getAllChunks, deleteChunksBySource
 from chunking import chunkText
 from embedding import loadModel, embeddedTexts
 from search import search
@@ -32,6 +32,7 @@ if args.command == "index":
     total_counter = len(list(folder.glob("*.md")))
 
     for file_path in folder.glob("*.md"):
+        deleteChunksBySource(conn, file_path.name)
         text = file_path.read_text(encoding="utf-8")
         chunked_text = chunkText(text, 50, 10)
         embed_chunk = embeddedTexts(model, chunked_text)

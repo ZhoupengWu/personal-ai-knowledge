@@ -46,3 +46,14 @@ def getAllChunks(conn: sqlite3.Connection) -> list[tuple]:
         new_data.append((data[i][0], blob, data[i][2]))
 
     return new_data
+
+def deleteChunksBySource(conn: sqlite3.Connection, source: str):
+    cur = conn.cursor()
+
+    cur.execute("""
+        DELETE FROM chunks
+        WHERE source = ?
+    """, (source,))
+
+    cur.close()
+    conn.commit()
