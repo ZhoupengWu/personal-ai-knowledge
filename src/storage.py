@@ -43,7 +43,7 @@ def getAllChunks(conn: sqlite3.Connection) -> list[tuple] | None:
     if not data:
         return None
 
-    new_data: list = None
+    new_data = []
 
     for i in range(len(data)):
         blob = np.frombuffer(data[i][1], dtype=np.float32)
