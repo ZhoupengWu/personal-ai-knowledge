@@ -1,4 +1,5 @@
 import os
+import sys
 import argparse
 from pathlib import Path
 from dotenv import load_dotenv
@@ -26,12 +27,28 @@ args = parser.parse_args()
 counter = 0
 
 if args.command == "index":
+    folder = Path(args.folder)
+
+    if not folder.exists():
+        print("La cartella non esiste")
+
+        sys.exit(1)
+
+    if not folder.is_dir():
+        print("Non è una cartella")
+
+        sys.exit(1)
+
+    total_counter = len(list(folder.glob("*.md")))
+
+    if total_counter == 0:
+        print("Non ci sono file da indicizzare")
+
+        sys.exit(1)
+
     model = loadModel()
     conn = createConnection("test.db")
     createTable(conn)
-
-    folder = Path(args.folder)
-    total_counter = len(list(folder.glob("*.md")))
 
     for file_path in folder.glob("*.md"):
         deleteChunksBySource(conn, file_path.name)
@@ -47,6 +64,15 @@ if args.command == "index":
 
     print("DONE")
 elif args.command == "query":
+    load_dotenv()
+
+    api_key = os.getenv("API_KEY")
+
+    if api_key is None:
+        print("Manca l'api key")
+
+        sys.exit(1)
+
     query = args.text
 
     if args.mode == "hybrid":
@@ -58,12 +84,16 @@ elif args.command == "query":
     conn = createConnection("test.db")
     createTable(conn)
 
-    load_dotenv()
-
-    client = createClient(os.getenv("API_KEY"))
+    client = createClient(api_key)
 
     embed_query = embeddedTexts(model, [query])
     chunks = getAllChunks(conn)
+
+    if chunks is None:
+        print("Il db è vuoto")
+
+        sys.exit(1)
+
     result = search(embed_query[0], chunks, args.top_k)
     answer = generateAnswer(client, result, query, mode=mode)
 

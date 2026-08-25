@@ -30,7 +30,7 @@ def insertChunk(conn: sqlite3.Connection, text: str, embedding: np.ndarray, sour
     cur.close()
     conn.commit()
 
-def getAllChunks(conn: sqlite3.Connection) -> list[tuple]:
+def getAllChunks(conn: sqlite3.Connection) -> list[tuple] | None:
     cur = conn.cursor()
 
     cur.execute("""
@@ -39,7 +39,7 @@ def getAllChunks(conn: sqlite3.Connection) -> list[tuple]:
     """)
 
     data = cur.fetchall()
-    new_data = []
+    new_data: list = None
 
     for i in range(len(data)):
         blob = np.frombuffer(data[i][1], dtype=np.float32)
