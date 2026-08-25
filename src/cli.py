@@ -13,6 +13,8 @@ subparsers = parser.add_subparsers(dest="command")
 
 index_parser = subparsers.add_parser("index")
 index_parser.add_argument("folder")
+index_parser.add_argument("--dimension", type=int, default=50)
+index_parser.add_argument("--overlap", type=int, default=10)
 
 query_parser = subparsers.add_parser("query")
 query_parser.add_argument("text")
@@ -34,7 +36,7 @@ if args.command == "index":
     for file_path in folder.glob("*.md"):
         deleteChunksBySource(conn, file_path.name)
         text = file_path.read_text(encoding="utf-8")
-        chunked_text = chunkText(text, 50, 10)
+        chunked_text = chunkText(text, args.dimension, args.overlap)
         embed_chunk = embeddedTexts(model, chunked_text)
 
         for i in range(len(chunked_text)):
