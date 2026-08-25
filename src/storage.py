@@ -39,6 +39,10 @@ def getAllChunks(conn: sqlite3.Connection) -> list[tuple] | None:
     """)
 
     data = cur.fetchall()
+
+    if not data:
+        return None
+
     new_data: list = None
 
     for i in range(len(data)):
