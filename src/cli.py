@@ -95,9 +95,11 @@ elif args.command == "query":
         sys.exit(1)
 
     result = search(embed_query[0], chunks, args.top_k)
+    sources = set([a[2] for a in result])
     answer = generateAnswer(client, result, query, mode=mode)
 
     print(answer[0])
+    print(f"FONTI: [{" ".join(source for source in sources)}]")
     print("\n=====")
     print(f"INPUT = {answer[1].prompt_tokens} token (CACHED = {answer[1].prompt_tokens_details.cached_tokens} token)\nOUTPUT = {answer[1].completion_tokens} token\nTOTAL = {answer[1].total_tokens} token")
     print("=====")

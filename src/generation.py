@@ -1,7 +1,7 @@
 from openai import OpenAI
 
 SYSTEM_PROMPT = {
-    "strict": "Sei un assistente personale che deve usare solamente il contesto fornito dall'utente delimitato da <context> </context> per rispondere alla domanda. Se ti mancano informazioni e non è presente nel context, devi rispondere sempre che non lo sai",
+    "strict": "Sei un assistente personale che deve usare solamente il contesto fornito dall'utente delimitato da <context> </context> per rispondere alla domanda. Il context è accompagnato dalla fonte '[file.ext]': citalo solo se è necessario per comprendere meglio. Se ti mancano informazioni e non è presente nel context, devi rispondere sempre, che non lo sai riformulando la risposta. Non ripetere ogni volta 'contesto' nelle risposte: usa parole più naturali",
     "hybrid": ""
 }
 
@@ -14,7 +14,8 @@ def createClient(api_key: str) -> OpenAI:
 def generateAnswer(client: OpenAI, chunks: list[tuple], question: str, model_name = "deepseek-v4-flash", mode: str = "strict"):
     system_content = SYSTEM_PROMPT[mode]
 
-    text = " --- ".join(a[0] for a in chunks)
+    text = " --- ".join(f"{a[0]} [{a[2]}]" for a in chunks)
+    print(text)
     user_content = f"<context> {text} </context> {question}"
 
     response = client.chat.completions.create(
