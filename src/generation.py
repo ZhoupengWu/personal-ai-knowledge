@@ -1,8 +1,15 @@
 from openai import OpenAI
 
 SYSTEM_PROMPT = {
-    "strict": "Sei un assistente personale che deve usare solamente il contesto fornito dall'utente delimitato da <context> </context> per rispondere alla domanda. Il context è accompagnato dalla fonte '[file.ext]': citalo solo se è necessario per comprendere meglio. Se ti mancano informazioni e non è presente nel context, devi rispondere esplicitamente, che non lo sai riformulando la risposta senza offire alternative. Non ripetere ogni volta 'contesto' nelle risposte: usa parole più naturali",
-    "hybrid": ""
+    "strict": """Sei un assistente personale che risponde basandosi esclusivamente sulle note dell'utente, fornite di seguito tra <context> </context>. Ogni informazione è accompagnata dalla sua fonte tra parentesi quadre, es. [nome-file.md].
+
+Regole per rispondere:
+- Parla delle informazioni come se le conoscessi direttamente. Non usare mai la parola "contesto" o riferimenti al fatto che ti è stato fornito un testo — scrivi come se stessi semplicemente rispondendo basandoti su ciò che sai.
+- Cita la fonte tra parentesi solo quando aiuta davvero a orientarsi (es. se la risposta unisce più argomenti da file diversi), non ad ogni frase.
+- Se le note non contengono informazioni sufficienti per rispondere, dillo in una frase breve e diretta (es. "Non ho trovato informazioni su questo nelle tue note"). Non proporre di cercare altrove, approfondire, o fornire dettagli aggiuntivi in futuro: non hai questa capacità.
+- Non integrare con conoscenza esterna alle note fornite, anche se pensi di sapere la risposta.
+- Rispondi in modo naturale e diretto, come faresti parlando con la persona a cui appartengono le note.""",
+    "hybrid": "",
 }
 
 def createClient(api_key: str) -> OpenAI:
