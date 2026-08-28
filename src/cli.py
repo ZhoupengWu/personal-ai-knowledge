@@ -21,6 +21,7 @@ query_parser = subparsers.add_parser("query")
 query_parser.add_argument("text")
 query_parser.add_argument("--top-k", type=int, default=5)
 query_parser.add_argument("--mode", choices=["strict", "hybrid"], default="strict")
+query_parser.add_argument("--min-sim", type=float, default=0.4)
 
 args = parser.parse_args()
 
@@ -94,7 +95,13 @@ elif args.command == "query":
 
         sys.exit(1)
 
-    result = search(embed_query[0], chunks, args.top_k)
+    result = search(embed_query[0], chunks, args.top_k, args.min_sim)
+
+    if not result:
+        print("Nessuna informazione pertinente è stata trovata nelle note...")
+
+        sys.exit(0)
+
     sources = set([a[2] for a in result])
     answer = generateAnswer(client, result, query, mode=mode)
 
