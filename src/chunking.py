@@ -15,15 +15,12 @@ def chunkText(text: str, dimension: int, overlap: int) -> list:
 def chunkTextBySentence(text: str, max_words: int, overlap_senteces: int) -> list:
     sentences = re.split(r'(?<=[.!?])\s+', text)
     chunk_sentences = []
-    print(sentences)
     covered_until = 0
     counter = 0
     k = 0
 
     for i in range(0, len(sentences)):
-        print(counter, k, i)
         counter += len(sentences[i].split())
-        print(counter, k, i)
 
         if counter >= max_words:
             chunk_sentences.append(" ".join(sentences[k : i+1]))

@@ -17,7 +17,8 @@ subparsers = parser.add_subparsers(dest="command", help="Comando da eseguire.")
 #
 index_parser = subparsers.add_parser(
     "index",
-    help="Indicizza i file .md di una cartella: li divide in chunk, genera gli embedding e li salva nel database."
+    help="Indicizza i file .md di una cartella: li divide in chunk, genera gli embedding e li salva nel database.",
+    description="Indicizza i file .md di una cartella: li divide in chunk, genera gli embedding e li salva nel database."
 )
 
 index_parser.add_argument(
@@ -28,7 +29,7 @@ index_parser.add_argument(
 index_parser.add_argument(
     "--dimension",
     type=int,
-    default=50,
+    default=40,
     help="Dimensione del chunk. Con --strategy=word: numero esatto di parole per chunk. "
          "Con --strategy=sentence: numero massimo di parole per chunk (il chunk può superare leggermente questo limite "
          "per includere l'ultima frase intera)."
@@ -37,7 +38,7 @@ index_parser.add_argument(
 index_parser.add_argument(
     "--overlap",
     type=int,
-    default=10,
+    default=1,
     help="Sovrapposizione tra chunk consecutivi, per non prendere contesto ai margini. "
          "Con --strategy=word: espresso in numero di parole. "
          "Con --strategy=sentence: espresso in numero di frasi."
@@ -56,7 +57,8 @@ index_parser.add_argument(
 #
 query_parser = subparsers.add_parser(
     "query",
-    help="Cerca nelle note indicizzate e genera una risposta basata sui chunk più pertinenti."
+    help="Cerca nelle note indicizzate e genera una risposta basata sui chunk più pertinenti.",
+    description="Cerca nelle note indicizzate e genera una risposta basata sui chunk più pertinenti."
 )
 
 query_parser.add_argument(
