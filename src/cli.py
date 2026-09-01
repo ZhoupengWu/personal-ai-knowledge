@@ -2,12 +2,14 @@ import os
 import sys
 import argparse
 from pathlib import Path
+from itertools import chain
 from dotenv import load_dotenv
 from storage import createConnection, createTable, insertChunk, getAllChunks, deleteChunksBySource
 from chunking import chunkText, chunkTextBySentence
 from embedding import loadModel, embeddedTexts
 from search import search
 from generation import createClient, generateAnswer
+from readers import readFile
 
 parser = argparse.ArgumentParser(description="Personal AI Knowledge - indicizza le tue note e fai domande basate sul loro contenuto.")
 subparsers = parser.add_subparsers(dest="command", help="Comando da eseguire.")
@@ -17,13 +19,13 @@ subparsers = parser.add_subparsers(dest="command", help="Comando da eseguire.")
 #
 index_parser = subparsers.add_parser(
     "index",
-    help="Indicizza i file .md di una cartella: li divide in chunk, genera gli embedding e li salva nel database.",
-    description="Indicizza i file .md di una cartella: li divide in chunk, genera gli embedding e li salva nel database."
+    help="Indicizza i file .md e .pdf di una cartella: li divide in chunk, genera gli embedding e li salva nel database.",
+    description="Indicizza i file .md e .pdf di una cartella: li divide in chunk, genera gli embedding e li salva nel database.",
 )
 
 index_parser.add_argument(
     "folder",
-    help="Percorso della cartella contenente i file .md da indicizzare."
+    help="Percorso della cartella contenente i file .md e/o .pdf da indicizzare.",
 )
 
 index_parser.add_argument(
@@ -105,7 +107,8 @@ if args.command == "index":
 
         sys.exit(1)
 
-    total_counter = len(list(folder.glob("*.md")))
+    files = list(chain(folder.glob("*.md"), folder.glob("*.pdf")))
+    total_counter = len(files)
 
     if total_counter == 0:
         print("Non ci sono file da indicizzare")
@@ -118,9 +121,9 @@ if args.command == "index":
     conn = createConnection("test.db")
     createTable(conn)
 
-    for file_path in folder.glob("*.md"):
+    for file_path in files:
         deleteChunksBySource(conn, file_path.name)
-        text = file_path.read_text(encoding="utf-8")
+        text = readFile(file_path)
         chunked_text = chunkText(text, args.dimension, args.overlap) if strategy == "word" else chunkTextBySentence(text, args.dimension, args.overlap)
         embed_chunk = embeddedTexts(model, chunked_text)
 
