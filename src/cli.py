@@ -1,10 +1,12 @@
 import os
 import sys
+import time
 import argparse
 from pathlib import Path
 from itertools import chain
+from datetime import datetime
 from dotenv import load_dotenv
-from storage import createConnection, createTable, insertChunk, getAllChunks, deleteChunksBySource
+from storage import createConnection, createTableChunk, insertChunk, getAllChunks, deleteChunksBySource, createTableLog, logQuery
 from chunking import chunkText, chunkTextBySentence
 from embedding import loadModel, embeddedTexts
 from search import search
@@ -134,20 +136,20 @@ if args.command == "index":
 
     counter = 0
     strategy = args.strategy
-    model_name = CATEGORY_MODELS[args.category]
+    hf_model_name = CATEGORY_MODELS[args.category]
 
-    model = loadModel(model_name)
-    conn = createConnection("test.db")
-    createTable(conn)
+    model = loadModel(hf_model_name)
+    conn_chunk = createConnection("test.db")
+    createTableChunk(conn_chunk)
 
     for file_path in files:
-        deleteChunksBySource(conn, file_path.name)
+        deleteChunksBySource(conn_chunk, file_path.name)
         text = readFile(file_path)
         chunked_text = chunkText(text, args.dimension, args.overlap) if strategy == "word" else chunkTextBySentence(text, args.dimension, args.overlap)
-        embed_chunk = embeddedTexts(model, chunked_text, model_name, "passage")
+        embed_chunk = embeddedTexts(model, chunked_text, hf_model_name, "passage")
 
         for i in range(len(chunked_text)):
-            insertChunk(conn, chunked_text[i], embed_chunk[i], file_path.name, model_name)
+            insertChunk(conn_chunk, chunked_text[i], embed_chunk[i], file_path.name, hf_model_name)
 
         counter += 1
         print(f"[{counter}/{total_counter}] file indexed ({file_path.name})")
@@ -156,7 +158,8 @@ if args.command == "index":
 elif args.command == "query":
     load_dotenv()
 
-    api_key = os.getenv("API_KEY")
+    api_key = os.getenv("DEEPSEEK_API_KEY")
+    api_model_name = os.getenv("DEEPSEEK_MODEL", "deepseek-v4-flash")
 
     if api_key is None:
         print("Manca l'api key")
@@ -170,29 +173,34 @@ elif args.command == "query":
 
     mode = "strict" if args.mode == "hybrid" else args.mode
 
-    model_name = CATEGORY_MODELS[args.category]
+    hf_model_name = CATEGORY_MODELS[args.category]
 
-    model = loadModel(model_name)
-    conn = createConnection("test.db")
-    createTable(conn)
+    model = loadModel(hf_model_name)
+
+    conn_chunk = createConnection("test.db")
+    createTableChunk(conn_chunk)
+
+    conn_log = createConnection("logs.db")
+    createTableLog(conn_log)
 
     client = createClient(api_key)
 
-    embed_query = embeddedTexts(model, [query], model_name, "query")
-    chunks = getAllChunks(conn)
+    embed_query = embeddedTexts(model, [query], hf_model_name, "queryanswer[1].total_tokens")
+    chunks = getAllChunks(conn_chunk)
 
     if chunks is None:
         print("Il db è vuoto")
 
         sys.exit(1)
 
-    chunks_filtered = [a for a in chunks if a[3] == model_name]
+    chunks_filtered = [a for a in chunks if a[3] == hf_model_name]
 
     if not chunks_filtered:
         print("Non ci sono risultati con questo modello")
 
         sys.exit(0)
 
+    start_time = time.time()
     result = search(embed_query[0], chunks_filtered, args.top_k, args.min_sim)
 
     if not result:
@@ -200,13 +208,23 @@ elif args.command == "query":
 
         sys.exit(0)
 
-    sources = set([a[2] for a in result])
-    answer = generateAnswer(client, result, query, mode)
+    sources_set = set([a[2] for a in result])
+    sources: str = ", ".join(source for source in sources_set)
+    answer = generateAnswer(client, api_model_name, result, query, mode)
+    elapsed_time = time.time() - start_time
 
-    print(answer[0])
-    print(f"FONTI: [{", ".join(source for source in sources)}]")
+    input_tokens = answer[1].prompt_tokens
+    input_cached_tokens = answer[1].prompt_tokens_details.cached_tokens or 0
+    output_tokens = answer[1].completion_tokens
+    reasoning_tokens = answer[1].completion_tokens_details.reasoning_tokens or 0
+    total_tokens = answer[1].total_tokens
+
+    logQuery(conn_log, hf_model_name, datetime().now().isoformat(), query, args.category, len(result), sources, api_model_name, input_tokens, input_cached_tokens, output_tokens, reasoning_tokens, total_tokens, elapsed_time)
+
+    print(f"\n{answer[0]}")
+    print(f"\nFONTI: [{sources}]")
     print("\n=====")
-    print(f"INPUT = {answer[1].prompt_tokens} token (CACHED = {answer[1].prompt_tokens_details.cached_tokens} token)\nOUTPUT = {answer[1].completion_tokens} token\nTOTAL = {answer[1].total_tokens} token")
+    print(f"INPUT = {input_tokens} token (CACHED = {input_cached_tokens} token)\nOUTPUT = {output_tokens} token (REASONING = {reasoning_tokens} token)\nTOTAL = {total_tokens} token")
     print("=====")
 else:
     parser.print_help()
