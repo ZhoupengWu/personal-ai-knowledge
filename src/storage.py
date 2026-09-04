@@ -1,5 +1,6 @@
 import sqlite3
 import numpy as np
+from pathlib import Path
 
 def createConnection(path: str):
     return sqlite3.connect(path)
@@ -13,20 +14,20 @@ def createTableChunk(conn: sqlite3.Connection) -> None:
             text TEXT,
             embedding BLOB,
             source TEXT,
-            model_name TEXT
+            hf_model_name TEXT
         )
     """)
 
     cur.close()
     conn.commit()
 
-def insertChunk(conn: sqlite3.Connection, text: str, embedding: np.ndarray, source: str, model_name: str) -> None:
+def insertChunk(conn: sqlite3.Connection, text: str, embedding: np.ndarray, source: str, hf_model_name: str) -> None:
     cur = conn.cursor()
 
     cur.execute("""
-        INSERT INTO chunks (text, embedding, source, model_name)
+        INSERT INTO chunks (text, embedding, source, hf_model_name)
         VALUES (?, ?, ?, ?)
-    """, (text, embedding.tobytes(), source, model_name))
+    """, (text, embedding.tobytes(), source, hf_model_name))
 
     cur.close()
     conn.commit()
@@ -35,7 +36,7 @@ def getAllChunks(conn: sqlite3.Connection) -> list[tuple] | None:
     cur = conn.cursor()
 
     cur.execute("""
-        SELECT text, embedding, source, model_name
+        SELECT text, embedding, source, hf_model_name
         FROM chunks
     """)
 
@@ -52,7 +53,29 @@ def getAllChunks(conn: sqlite3.Connection) -> list[tuple] | None:
 
     return new_data
 
-def deleteChunksBySource(conn: sqlite3.Connection, source: str):
+def getChunksByModel(conn: sqlite3.Connection, hf_model_name: str) -> list[tuple] | None:
+    cur = conn.cursor()
+
+    cur.execute("""
+        SELECT text, embedding, source, hf_model_name
+        FROM chunks
+        WHERE hf_model_name = ?
+    """, (hf_model_name,))
+
+    data = cur.fetchall()
+
+    if not data:
+        return None
+
+    new_data = []
+
+    for i in range(len(data)):
+        blob = np.frombuffer(data[i][1], dtype=np.float32)
+        new_data.append((data[i][0], blob, data[i][2], data[i][3]))
+
+    return new_data
+
+def deleteChunksBySource(conn: sqlite3.Connection, source: str) -> None:
     cur = conn.cursor()
 
     cur.execute("""
@@ -78,8 +101,8 @@ def createTableLog(conn: sqlite3.Connection) -> None:
             model_name_api TEXT,
             input_tokens INTEGER,
             input_cached_tokens INTEGER,
-            output_tokens INTEGER
-            reasoning_tokens INTEGER
+            output_tokens INTEGER,
+            reasoning_tokens INTEGER,
             total_tokens INTEGER,
             elapsed_seconds REAL
         )
@@ -98,3 +121,13 @@ def logQuery(conn: sqlite3.Connection, model_hf: str, timestamp: str, query: str
 
     cur.close()
     conn.commit()
+
+def saveAnswerToFile(query: str, answer: str, timestamp: str, sources: str) -> None:
+    safe_timestamp = timestamp.replace(":", "_")
+    filename = f"query_{safe_timestamp}.txt"
+
+    folder = Path("log_data_answer")
+    folder.mkdir(exist_ok=True)
+
+    file_path = folder / filename
+    file_path.write_text(f"Domanda: {query}\n\nRisposta:\n{answer}\n\n[{sources}]", encoding="utf-8")

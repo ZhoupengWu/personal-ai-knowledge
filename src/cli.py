@@ -4,9 +4,9 @@ import time
 import argparse
 from pathlib import Path
 from itertools import chain
-from datetime import datetime
+from datetime import datetime, timezone
 from dotenv import load_dotenv
-from storage import createConnection, createTableChunk, insertChunk, getAllChunks, deleteChunksBySource, createTableLog, logQuery
+from storage import createConnection, createTableChunk, insertChunk, getChunksByModel, deleteChunksBySource, createTableLog, logQuery, saveAnswerToFile
 from chunking import chunkText, chunkTextBySentence
 from embedding import loadModel, embeddedTexts
 from search import search
@@ -185,23 +185,16 @@ elif args.command == "query":
 
     client = createClient(api_key)
 
-    embed_query = embeddedTexts(model, [query], hf_model_name, "queryanswer[1].total_tokens")
-    chunks = getAllChunks(conn_chunk)
+    embed_query = embeddedTexts(model, [query], hf_model_name, "query")
+    chunks = getChunksByModel(conn_chunk, hf_model_name)
 
     if chunks is None:
-        print("Il db è vuoto")
-
-        sys.exit(1)
-
-    chunks_filtered = [a for a in chunks if a[3] == hf_model_name]
-
-    if not chunks_filtered:
-        print("Non ci sono risultati con questo modello")
+        print("Non ci sono valori per questa ricerca")
 
         sys.exit(0)
 
     start_time = time.time()
-    result = search(embed_query[0], chunks_filtered, args.top_k, args.min_sim)
+    result = search(embed_query[0], chunks, args.top_k, args.min_sim)
 
     if not result:
         print("Nessuna informazione pertinente è stata trovata nelle note...")
@@ -213,18 +206,21 @@ elif args.command == "query":
     answer = generateAnswer(client, api_model_name, result, query, mode)
     elapsed_time = time.time() - start_time
 
+    timestamp = datetime.now(timezone.utc).isoformat()
     input_tokens = answer[1].prompt_tokens
     input_cached_tokens = answer[1].prompt_tokens_details.cached_tokens or 0
     output_tokens = answer[1].completion_tokens
     reasoning_tokens = answer[1].completion_tokens_details.reasoning_tokens or 0
     total_tokens = answer[1].total_tokens
 
-    logQuery(conn_log, hf_model_name, datetime().now().isoformat(), query, args.category, len(result), sources, api_model_name, input_tokens, input_cached_tokens, output_tokens, reasoning_tokens, total_tokens, elapsed_time)
+    logQuery(conn_log, hf_model_name, timestamp, query, args.category, len(result), sources, api_model_name, input_tokens, input_cached_tokens, output_tokens, reasoning_tokens, total_tokens, elapsed_time)
 
     print(f"\n{answer[0]}")
     print(f"\nFONTI: [{sources}]")
     print("\n=====")
     print(f"INPUT = {input_tokens} token (CACHED = {input_cached_tokens} token)\nOUTPUT = {output_tokens} token (REASONING = {reasoning_tokens} token)\nTOTAL = {total_tokens} token")
     print("=====")
+
+    saveAnswerToFile(query, answer[0], timestamp, sources)
 else:
     parser.print_help()
