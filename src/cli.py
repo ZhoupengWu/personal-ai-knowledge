@@ -11,6 +11,11 @@ from search import search
 from generation import createClient, generateAnswer
 from readers import readFile
 
+CATEGORY_MODELS = {
+    "note": "paraphrase-multilingual-mpnet-base-v2",
+    "programma": "intfloat/multilingual-e5-large"
+}
+
 parser = argparse.ArgumentParser(description="Personal AI Knowledge - indicizza le tue note e fai domande basate sul loro contenuto.")
 subparsers = parser.add_subparsers(dest="command", help="Comando da eseguire.")
 
@@ -52,6 +57,12 @@ index_parser.add_argument(
     default="sentence",
     help="Metodo di chunking: 'word' taglia per numero fisso di parole (più semplice, può spezzare le frasi); "
          "'sentence' raggruppa frasi intere fino al limite di parole, senza spezzarle (default, consigliato per note in prosa)."
+)
+
+index_parser.add_argument(
+    "--category",
+    choices=list(CATEGORY_MODELS.keys()),
+    default="programma"
 )
 
 #
@@ -117,7 +128,9 @@ if args.command == "index":
 
     counter = 0
     strategy = args.strategy
-    model = loadModel()
+    model_name = CATEGORY_MODELS[args.category]
+
+    model = loadModel(model_name)
     conn = createConnection("test.db")
     createTable(conn)
 
@@ -125,10 +138,10 @@ if args.command == "index":
         deleteChunksBySource(conn, file_path.name)
         text = readFile(file_path)
         chunked_text = chunkText(text, args.dimension, args.overlap) if strategy == "word" else chunkTextBySentence(text, args.dimension, args.overlap)
-        embed_chunk = embeddedTexts(model, chunked_text)
+        embed_chunk = embeddedTexts(model, chunked_text, model_name, "passage")
 
         for i in range(len(chunked_text)):
-            insertChunk(conn, chunked_text[i], embed_chunk[i], file_path.name)
+            insertChunk(conn, chunked_text[i], embed_chunk[i], file_path.name, model_name)
 
         counter += 1
         print(f"[{counter}/{total_counter}] file indexed ({file_path.name})")

@@ -12,20 +12,21 @@ def createTable(conn: sqlite3.Connection) -> None:
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             text TEXT,
             embedding BLOB,
-            source TEXT
+            source TEXT,
+            model_name TEXT
         )
     """)
 
     cur.close()
     conn.commit()
 
-def insertChunk(conn: sqlite3.Connection, text: str, embedding: np.ndarray, source: str) -> None:
+def insertChunk(conn: sqlite3.Connection, text: str, embedding: np.ndarray, source: str, model_name: str) -> None:
     cur = conn.cursor()
 
     cur.execute("""
-        INSERT INTO chunks (text, embedding, source)
-        VALUES (?, ?, ?)
-    """, (text, embedding.tobytes(), source))
+        INSERT INTO chunks (text, embedding, source, model_name)
+        VALUES (?, ?, ?, ?)
+    """, (text, embedding.tobytes(), source, model_name))
 
     cur.close()
     conn.commit()
@@ -34,7 +35,7 @@ def getAllChunks(conn: sqlite3.Connection) -> list[tuple] | None:
     cur = conn.cursor()
 
     cur.execute("""
-        SELECT text, embedding, source
+        SELECT text, embedding, source, model_name
         FROM chunks
     """)
 
@@ -47,7 +48,7 @@ def getAllChunks(conn: sqlite3.Connection) -> list[tuple] | None:
 
     for i in range(len(data)):
         blob = np.frombuffer(data[i][1], dtype=np.float32)
-        new_data.append((data[i][0], blob, data[i][2]))
+        new_data.append((data[i][0], blob, data[i][2], data[i][3]))
 
     return new_data
 
