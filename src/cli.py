@@ -102,6 +102,12 @@ query_parser.add_argument(
          "Serve solo a filtrare il rumore più evidente, non è una soglia di rilevanza precisa (default: 0.4)."
 )
 
+query_parser.add_argument(
+    "--category",
+    choices=list(CATEGORY_MODELS.keys()),
+    default="programma"
+)
+
 
 args = parser.parse_args()
 
@@ -164,13 +170,15 @@ elif args.command == "query":
 
     mode = "strict" if args.mode == "hybrid" else args.mode
 
-    model = loadModel()
+    model_name = CATEGORY_MODELS[args.category]
+
+    model = loadModel(model_name)
     conn = createConnection("test.db")
     createTable(conn)
 
     client = createClient(api_key)
 
-    embed_query = embeddedTexts(model, [query])
+    embed_query = embeddedTexts(model, [query], model_name, "query")
     chunks = getAllChunks(conn)
 
     if chunks is None:
@@ -178,7 +186,14 @@ elif args.command == "query":
 
         sys.exit(1)
 
-    result = search(embed_query[0], chunks, args.top_k, args.min_sim)
+    chunks_filtered = [a for a in chunks if a[3] == model_name]
+
+    if not chunks_filtered:
+        print("Non ci sono risultati con questo modello")
+
+        sys.exit(0)
+
+    result = search(embed_query[0], chunks_filtered, args.top_k, args.min_sim)
 
     if not result:
         print("Nessuna informazione pertinente è stata trovata nelle note...")
@@ -186,7 +201,7 @@ elif args.command == "query":
         sys.exit(0)
 
     sources = set([a[2] for a in result])
-    answer = generateAnswer(client, result, query, mode=mode)
+    answer = generateAnswer(client, result, query, mode)
 
     print(answer[0])
     print(f"FONTI: [{", ".join(source for source in sources)}]")
