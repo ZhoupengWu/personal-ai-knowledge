@@ -64,7 +64,7 @@ index_parser.add_argument(
 index_parser.add_argument(
     "--category",
     choices=list(CATEGORY_MODELS.keys()),
-    default="programma"
+    default="note"
 )
 
 #
@@ -107,7 +107,7 @@ query_parser.add_argument(
 query_parser.add_argument(
     "--category",
     choices=list(CATEGORY_MODELS.keys()),
-    default="programma"
+    default="note"
 )
 
 
@@ -203,24 +203,24 @@ elif args.command == "query":
 
     sources_set = set([a[2] for a in result])
     sources: str = ", ".join(source for source in sources_set)
-    answer = generateAnswer(client, api_model_name, result, query, mode)
+    answer_text, usage = generateAnswer(client, api_model_name, result, query, mode)
     elapsed_time = time.time() - start_time
 
     timestamp = datetime.now(timezone.utc).isoformat()
-    input_tokens = answer[1].prompt_tokens
-    input_cached_tokens = answer[1].prompt_tokens_details.cached_tokens or 0
-    output_tokens = answer[1].completion_tokens
-    reasoning_tokens = answer[1].completion_tokens_details.reasoning_tokens or 0
-    total_tokens = answer[1].total_tokens
+    input_tokens = usage.prompt_tokens
+    input_cached_tokens = usage.prompt_tokens_details.cached_tokens or 0
+    output_tokens = usage.completion_tokens
+    reasoning_tokens = usage.completion_tokens_details.reasoning_tokens if usage.completion_tokens_details.reasoning_tokens is not None else 0
+    total_tokens = usage.total_tokens
 
     logQuery(conn_log, hf_model_name, timestamp, query, args.category, len(result), sources, api_model_name, input_tokens, input_cached_tokens, output_tokens, reasoning_tokens, total_tokens, elapsed_time)
 
-    print(f"\n{answer[0]}")
+    print(f"\n{answer_text}")
     print(f"\nFONTI: [{sources}]")
     print("\n=====")
     print(f"INPUT = {input_tokens} token (CACHED = {input_cached_tokens} token)\nOUTPUT = {output_tokens} token (REASONING = {reasoning_tokens} token)\nTOTAL = {total_tokens} token")
     print("=====")
 
-    saveAnswerToFile(query, answer[0], timestamp, sources)
+    saveAnswerToFile(query, answer_text, timestamp, sources)
 else:
     parser.print_help()
