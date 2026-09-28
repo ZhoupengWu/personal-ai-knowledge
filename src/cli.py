@@ -90,10 +90,11 @@ query_parser.add_argument(
 
 query_parser.add_argument(
     "--mode",
-    choices=["strict", "hybrid"],
+    choices=["strict", "standard", "full"],
     default="strict",
-    help="'strict': risponde solo con informazioni presenti nelle note, dice esplicitamente se non le trova. "
-         "'hybrid': non ancora disponibile, ricade automaticamente su 'strict'."
+    help="Quanto la risposta può discostarsi dalle informazioni fornite: 'strict' usa solo quelle, "
+         "'standard' le integra con conoscenza generale segnalandolo sempre, "
+         "'full' integra liberamente senza distinzioni esplicite."
 )
 
 query_parser.add_argument(
@@ -167,12 +168,7 @@ elif args.command == "query":
         sys.exit(1)
 
     query = args.text
-
-    if args.mode == "hybrid":
-        print("Modalità hybrid non disponibile. Verrà utilizzato strict")
-
-    mode = "strict" if args.mode == "hybrid" else args.mode
-
+    mode = args.mode
     hf_model_name = CATEGORY_MODELS[args.category]
 
     model = loadModel(hf_model_name)
