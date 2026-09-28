@@ -160,7 +160,7 @@ elif args.command == "query":
     load_dotenv()
 
     api_key = os.getenv("DEEPSEEK_API_KEY")
-    api_model_name = os.getenv("DEEPSEEK_MODEL", "deepseek-v4-flash")
+    api_model_name = os.getenv("DEEPSEEK_MODEL", "deepseek-flash")
 
     if api_key is None:
         print("Manca l'api key")
@@ -169,14 +169,15 @@ elif args.command == "query":
 
     query = args.text
     mode = args.mode
-    hf_model_name = CATEGORY_MODELS[args.category]
+    category = args.category
+    hf_model_name = CATEGORY_MODELS[category]
 
     model = loadModel(hf_model_name)
 
     conn_chunk = createConnection("test.db")
     createTableChunk(conn_chunk)
 
-    conn_log = createConnection("logs.db")
+    conn_log = createConnection("logs_v2.db")
     createTableLog(conn_log)
 
     client = createClient(api_key)
@@ -192,7 +193,7 @@ elif args.command == "query":
     start_time = time.time()
     result = search(embed_query[0], chunks, args.top_k, args.min_sim)
 
-    if not result:
+    if not result and mode == "strict":
         print("Nessuna informazione pertinente è stata trovata nelle note...")
 
         sys.exit(0)
@@ -209,14 +210,14 @@ elif args.command == "query":
     reasoning_tokens = usage.completion_tokens_details.reasoning_tokens if usage.completion_tokens_details.reasoning_tokens is not None else 0
     total_tokens = usage.total_tokens
 
-    logQuery(conn_log, hf_model_name, timestamp, query, args.category, len(result), sources, api_model_name, input_tokens, input_cached_tokens, output_tokens, reasoning_tokens, total_tokens, elapsed_time)
+    logQuery(conn_log, hf_model_name, timestamp, query, args.category, len(result), sources, mode, api_model_name, input_tokens, input_cached_tokens, output_tokens, reasoning_tokens, total_tokens, elapsed_time)
 
     print(f"\n{answer_text}")
-    print(f"\nFONTI: [{sources}]")
+    print(f"\nFONTI CONSULTATE: [{sources if sources else "nessuna"}]")
     print("\n=====")
     print(f"INPUT = {input_tokens} token (CACHED = {input_cached_tokens} token)\nOUTPUT = {output_tokens} token (REASONING = {reasoning_tokens} token)\nTOTAL = {total_tokens} token")
     print("=====")
 
-    saveAnswerToFile(query, answer_text, timestamp, sources)
+    saveAnswerToFile(query, answer_text, timestamp, sources, mode, category)
 else:
     parser.print_help()

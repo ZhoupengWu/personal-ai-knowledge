@@ -35,7 +35,7 @@ def generateAnswer(client: OpenAI, model_name: str, chunks: list[tuple], questio
     system_content = SYSTEM_PROMPT[mode]
 
     text = " --- ".join(a[0] for a in chunks)
-    user_content = f"<context> {text} </context> {question}"
+    user_content = f"<context> {text if text else "Nessuna informazione disponibile"} </context> {question}"
 
     response = client.chat.completions.create(
         model=model_name,

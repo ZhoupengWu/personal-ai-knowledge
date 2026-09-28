@@ -98,6 +98,7 @@ def createTableLog(conn: sqlite3.Connection) -> None:
             category TEXT,
             num_results INTEGER,
             sources TEXT,
+            answer_mode TEXT,
             model_name_api TEXT,
             input_tokens INTEGER,
             input_cached_tokens INTEGER,
@@ -111,23 +112,23 @@ def createTableLog(conn: sqlite3.Connection) -> None:
     cur.close()
     conn.commit()
 
-def logQuery(conn: sqlite3.Connection, model_hf: str, timestamp: str, query: str, category: str, num_results: int, sources: str, model_name_api: str, inp_tokens: int, inp_cached_tokens: int, out_tokens: int, reasoning_tokens: int, total_tokens: int, elapsed_seconds: float) -> None:
+def logQuery(conn: sqlite3.Connection, model_hf: str, timestamp: str, query: str, category: str, num_results: int, sources: str, answer_mode: str, model_name_api: str, inp_tokens: int, inp_cached_tokens: int, out_tokens: int, reasoning_tokens: int, total_tokens: int, elapsed_seconds: float) -> None:
     cur = conn.cursor()
 
     cur.execute("""
-        INSERT INTO query_log (model_hf, timestamp, query, category, num_results, sources, model_name_api, input_tokens, input_cached_tokens, output_tokens, reasoning_tokens, total_tokens, elapsed_seconds)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    """, (model_hf, timestamp, query, category, num_results, sources, model_name_api, inp_tokens, inp_cached_tokens, out_tokens, reasoning_tokens, total_tokens, elapsed_seconds))
+        INSERT INTO query_log (model_hf, timestamp, query, category, num_results, sources, answer_mode, model_name_api, input_tokens, input_cached_tokens, output_tokens, reasoning_tokens, total_tokens, elapsed_seconds)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    """, (model_hf, timestamp, query, category, num_results, sources, answer_mode, model_name_api, inp_tokens, inp_cached_tokens, out_tokens, reasoning_tokens, total_tokens, elapsed_seconds))
 
     cur.close()
     conn.commit()
 
-def saveAnswerToFile(query: str, answer: str, timestamp: str, sources: str) -> None:
+def saveAnswerToFile(query: str, answer: str, timestamp: str, sources: str, mode: str, category: str) -> None:
     safe_timestamp = timestamp.replace(":", "_")
-    filename = f"query_{safe_timestamp}.txt"
+    filename = f"query_{safe_timestamp}_v2.txt"
 
     folder = Path("log_data_answer")
     folder.mkdir(exist_ok=True)
 
     file_path = folder / filename
-    file_path.write_text(f"Domanda: {query}\n\nRisposta:\n{answer}\n\n[{sources}]", encoding="utf-8")
+    file_path.write_text(f"Domanda: {query}\n\nRisposta:\n{answer}\n\n[{sources}]\nMode: {mode}\nCategory: {category}", encoding="utf-8")
