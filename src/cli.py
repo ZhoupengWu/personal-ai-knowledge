@@ -207,7 +207,7 @@ elif args.command == "query":
     input_tokens = usage.prompt_tokens
     input_cached_tokens = usage.prompt_tokens_details.cached_tokens or 0
     output_tokens = usage.completion_tokens
-    reasoning_tokens = usage.completion_tokens_details.reasoning_tokens if usage.completion_tokens_details.reasoning_tokens is not None else 0
+    reasoning_tokens = usage.completion_tokens_details.reasoning_tokens if usage.completion_tokens_details and usage.completion_tokens_details.reasoning_tokens is not None else 0
     total_tokens = usage.total_tokens
 
     logQuery(conn_log, hf_model_name, timestamp, query, args.category, len(result), sources, mode, api_model_name, input_tokens, input_cached_tokens, output_tokens, reasoning_tokens, total_tokens, elapsed_time)
