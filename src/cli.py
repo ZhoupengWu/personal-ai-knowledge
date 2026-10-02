@@ -112,7 +112,7 @@ query_parser.add_argument(
     default=None,
     help="Soglia minima di similarità (0-1) sotto la quale un chunk viene scartato prima di essere passato al modello. "
          "Se omessa, si usa quella calibrata per la categoria. "
-         "Indica 0 oer vedere tutti i risultati, utile con --show-chunks per calibrare. "
+         "Indica 0 per vedere tutti i risultati, utile con --show-chunks per calibrare. "
          "Le soglie non sono confrontabili tra categorie diverse perché ogni modello ha una scala di punteggi propria."
 )
 
@@ -191,7 +191,7 @@ elif args.command == "query":
     mode = args.mode
     category = args.category
     hf_model_name = CATEGORY_MODELS[category]["model"]
-    min_sim = args.min_sim is not None or CATEGORY_MODELS[category]["min_sim"]
+    min_sim = args.min_sim if args.min_sim is not None else CATEGORY_MODELS[category]["min_sim"]
 
     model = loadModel(hf_model_name)
 
