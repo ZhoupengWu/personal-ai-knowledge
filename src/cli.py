@@ -14,8 +14,14 @@ from generation import createClient, generateAnswer
 from readers import readFile
 
 CATEGORY_MODELS = {
-    "note": "paraphrase-multilingual-mpnet-base-v2",
-    "programma": "intfloat/multilingual-e5-large"
+    "note": {
+        "model": "paraphrase-multilingual-mpnet-base-v2",
+        "min_sim": 0.4
+    },
+    "programma": {
+        "model": "intfloat/multilingual-e5-large",
+        "min_sim": 0.79
+    }
 }
 
 parser = argparse.ArgumentParser(description="Personal AI Knowledge - indicizza le tue note e fai domande basate sul loro contenuto.")
@@ -64,7 +70,10 @@ index_parser.add_argument(
 index_parser.add_argument(
     "--category",
     choices=list(CATEGORY_MODELS.keys()),
-    default="note"
+    default="note",
+    help="Categoria del contenuto: determina il modello di embedding usato per indicizzare i file "
+         "(note: testi brevi in prosa; programma: documenti lunghi, come un programma politico). "
+         "Usa la stessa categoria in fase di query (default: note)."
 )
 
 #
@@ -100,15 +109,26 @@ query_parser.add_argument(
 query_parser.add_argument(
     "--min-sim",
     type=float,
-    default=0.4,
+    default=None,
     help="Soglia minima di similarità (0-1) sotto la quale un chunk viene scartato prima di essere passato al modello. "
-         "Serve solo a filtrare il rumore più evidente, non è una soglia di rilevanza precisa (default: 0.4)."
+         "Se omessa, si usa quella calibrata per la categoria. "
+         "Indica 0 oer vedere tutti i risultati, utile con --show-chunks per calibrare. "
+         "Le soglie non sono confrontabili tra categorie diverse perché ogni modello ha una scala di punteggi propria."
 )
 
 query_parser.add_argument(
     "--category",
     choices=list(CATEGORY_MODELS.keys()),
-    default="note"
+    default="note",
+    help="Categoria su cui cercare: deve coincidere con quella usata in fase di indicizzazione "
+         "perché modelli diversi producono embedding non confrontabili (default: note)."
+)
+
+query_parser.add_argument(
+    "--show-chunks",
+    action="store_true",
+    help="Stampa i chunks recuperati (testo, punteggio di similarità e fonte) prima della risposta. "
+         "Utile per verificare cosa riceve il modello e per calibrare --min-sim."
 )
 
 
@@ -137,7 +157,7 @@ if args.command == "index":
 
     counter = 0
     strategy = args.strategy
-    hf_model_name = CATEGORY_MODELS[args.category]
+    hf_model_name = CATEGORY_MODELS[args.category]["model"]
 
     model = loadModel(hf_model_name)
     conn_chunk = createConnection("test.db")
@@ -170,7 +190,8 @@ elif args.command == "query":
     query = args.text
     mode = args.mode
     category = args.category
-    hf_model_name = CATEGORY_MODELS[category]
+    hf_model_name = CATEGORY_MODELS[category]["model"]
+    min_sim = args.min_sim is not None or CATEGORY_MODELS[category]["min_sim"]
 
     model = loadModel(hf_model_name)
 
@@ -191,7 +212,10 @@ elif args.command == "query":
         sys.exit(0)
 
     start_time = time.time()
-    result = search(embed_query[0], chunks, args.top_k, args.min_sim)
+    result = search(embed_query[0], chunks, args.top_k, min_sim)
+
+    if args.show_chunks:
+        print(result)
 
     if not result and mode == "strict":
         print("Nessuna informazione pertinente è stata trovata nelle note...")
