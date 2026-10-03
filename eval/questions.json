@@ -1,0 +1,313 @@
+[
+    {
+        "question": "Da dove arriva il caffè?",
+        "category": "note",
+        "label": "pertinente",
+        "expected_source": [
+            "il-caffe.md",
+            "sistemi-auto-organizzati.md"
+        ]
+    },
+    {
+        "question": "Quali sono le due specie di caffè coltivate commercialmente?",
+        "category": "note",
+        "label": "pertinente",
+        "expected_source": "il-caffe.md"
+    },
+    {
+        "question": "Come si passa dalla pianta alla tazzina di caffè?",
+        "category": "note",
+        "label": "pertinente",
+        "expected_source": "il-caffe.md"
+    },
+    {
+        "question": "Cos'è l'effetto Mandela?",
+        "category": "note",
+        "label": "pertinente",
+        "expected_source": "effetto-mandela.md"
+    },
+    {
+        "question": "Perché la gente ricorda cose mai accadute?",
+        "category": "note",
+        "label": "pertinente",
+        "expected_source": [
+            "effetto-mandela.md",
+            "sistemi-auto-organizzati.md"
+        ]
+    },
+    {
+        "question": "Quali sono le cause dell'effetto Mandela?",
+        "category": "note",
+        "label": "pertinente",
+        "expected_source": [
+            "effetto-mandela.md",
+            "sistemi-auto-organizzati.md"
+        ]
+    },
+    {
+        "question": "I polpi sono animali intelligenti?",
+        "category": "note",
+        "label": "pertinente",
+        "expected_source": [
+            "pulpi-intelligenza.md",
+            "sistemi-auto-organizzati.md"
+        ]
+    },
+    {
+        "question": "Come riescono a scappare dagli acquari?",
+        "category": "note",
+        "label": "pertinente",
+        "expected_source": "pulpi-intelligenza.md"
+    },
+    {
+        "question": "Perché i giovani votano meno?",
+        "category": "note",
+        "label": "pertinente",
+        "expected_source": [
+            "politica-e-giovani.md",
+            "sistemi-auto-organizzati.md"
+        ]
+    },
+    {
+        "question": "Che cos'è lo slacktivism?",
+        "category": "note",
+        "label": "pertinente",
+        "expected_source": "politica-e-giovani.md"
+    },
+    {
+        "question": "Cosa succede nel cervello durante l'adolescenza?",
+        "category": "note",
+        "label": "pertinente",
+        "expected_source": [
+            "adolescenza.md",
+            "sistemi-auto-organizzati.md"
+        ]
+    },
+    {
+        "question": "Perché la corteccia prefrontale matura per ultima?",
+        "category": "note",
+        "label": "pertinente",
+        "expected_source": [
+            "adolescenza.md",
+            "sistemi-auto-organizzati.md"
+        ]
+    },
+    {
+        "question": "Ragazzi e ragazze crescono davvero in modo diverso?",
+        "category": "note",
+        "label": "pertinente",
+        "expected_source": "ragazzi-ragazze.md"
+    },
+    {
+        "question": "Quando inizia la pubertà nelle ragazze rispetto ai ragazzi?",
+        "category": "note",
+        "label": "pertinente",
+        "expected_source": "ragazzi-ragazze.md"
+    },
+    {
+        "question": "Cosa hanno in comune i polpi e i movimenti giovanili?",
+        "category": "note",
+        "label": "pertinente",
+        "expected_source": "sistemi-auto-organizzati.md"
+    },
+    {
+        "question": "Qual è la capitale dell'Australia?",
+        "category": "note",
+        "label": "fuori_tema"
+    },
+    {
+        "question": "Come si prepara la carbonara?",
+        "category": "note",
+        "label": "fuori_tema"
+    },
+    {
+        "question": "Chi ha vinto i Mondiali di calcio nel 2006?",
+        "category": "note",
+        "label": "fuori_tema"
+    },
+    {
+        "question": "Come funziona un motore a quattro tempi?",
+        "category": "note",
+        "label": "fuori_tema"
+    },
+    {
+        "question": "Come si installa Python su Windows?",
+        "category": "note",
+        "label": "fuori_tema"
+    },
+    {
+        "question": "Che cos'è la memoria RAM?",
+        "category": "note",
+        "label": "fuori_tema"
+    },
+    {
+        "question": "Come si prepara il tè?",
+        "category": "note",
+        "label": "fuori_tema"
+    },
+    {
+        "question": "Chi ha inventato la psicologia cognitiva?",
+        "category": "note",
+        "label": "fuori_tema"
+    },
+    {
+        "question": "Come si pota un albero da frutto?",
+        "category": "note",
+        "label": "fuori_tema"
+    },
+    {
+        "question": "Quanto vive un elefante?",
+        "category": "note",
+        "label": "fuori_tema"
+    },
+    {
+        "question": "Quali sono i diritti di un lavoratore dipendente?",
+        "category": "note",
+        "label": "fuori_tema"
+    },
+    {
+        "question": "Chi era Nelson Mandela?",
+        "category": "note",
+        "label": "borderline"
+    },
+    {
+        "question": "Che cos'è la mielina?",
+        "category": "note",
+        "label": "borderline"
+    },
+    {
+        "question": "Come si prepara un espresso perfetto?",
+        "category": "note",
+        "label": "borderline"
+    },
+    {
+        "question": "Come si può allenare la memoria?",
+        "category": "note",
+        "label": "borderline"
+    },
+    {
+        "question": "Cosa propone il programma sul lavoro e sui salari?",
+        "category": "programma",
+        "label": "pertinente"
+    },
+    {
+        "question": "Come intende ridurre il cuneo fiscale?",
+        "category": "programma",
+        "label": "pertinente"
+    },
+    {
+        "question": "Quali misure sono previste per la natalità e le famiglie?",
+        "category": "programma",
+        "label": "pertinente"
+    },
+    {
+        "question": "Qual è la posizione sull'energia nucleare?",
+        "category": "programma",
+        "label": "pertinente"
+    },
+    {
+        "question": "Cosa propone sul gas russo e sull'approvvigionamento energetico?",
+        "category": "programma",
+        "label": "pertinente"
+    },
+    {
+        "question": "Cosa si dice sull'immigrazione e sulla remigrazione?",
+        "category": "programma",
+        "label": "pertinente"
+    },
+    {
+        "question": "Come cambierebbe la legge elettorale?",
+        "category": "programma",
+        "label": "pertinente"
+    },
+    {
+        "question": "Cosa propone sull'origine dei prodotti alimentari e l'etichettatura?",
+        "category": "programma",
+        "label": "pertinente"
+    },
+    {
+        "question": "Qual è la posizione sull'impiego delle Forze Armate per la sicurezza urbana?",
+        "category": "programma",
+        "label": "pertinente"
+    },
+    {
+        "question": "Cosa propone per i detenuti e la sanità nelle carceri?",
+        "category": "programma",
+        "label": "pertinente"
+    },
+    {
+        "question": "Qual è la posizione sui rapporti con la Cina e sui dazi?",
+        "category": "programma",
+        "label": "pertinente"
+    },
+    {
+        "question": "Cosa dice il programma sull'Unione Europea?",
+        "category": "programma",
+        "label": "pertinente"
+    },
+    {
+        "question": "Cosa si propone sul divieto europeo dei motori termici dal 2035?",
+        "category": "programma",
+        "label": "pertinente"
+    },
+    {
+        "question": "Qual è la posizione sull'aborto e sui consultori?",
+        "category": "programma",
+        "label": "pertinente"
+    },
+    {
+        "question": "Come si prepara la carbonara?",
+        "category": "programma",
+        "label": "fuori_tema"
+    },
+    {
+        "question": "Chi ha vinto i Mondiali di calcio nel 2006?",
+        "category": "programma",
+        "label": "fuori_tema"
+    },
+    {
+        "question": "Come funziona un motore a quattro tempi?",
+        "category": "programma",
+        "label": "fuori_tema"
+    },
+    {
+        "question": "Qual è la capitale dell'Australia?",
+        "category": "programma",
+        "label": "fuori_tema"
+    },
+    {
+        "question": "Come si installa Python su Windows?",
+        "category": "programma",
+        "label": "fuori_tema"
+    },
+    {
+        "question": "Quanto dura il volo da Roma a New York?",
+        "category": "programma",
+        "label": "fuori_tema"
+    },
+    {
+        "question": "Qual è la formula chimica dell'acqua?",
+        "category": "programma",
+        "label": "fuori_tema"
+    },
+    {
+        "question": "Quanto la cucina italiana influenza il cancro?",
+        "category": "programma",
+        "label": "borderline"
+    },
+    {
+        "question": "Cosa pensa il partito della monarchia britannica?",
+        "category": "programma",
+        "label": "borderline"
+    },
+    {
+        "question": "Qual è la posizione sul voto ai sedicenni?",
+        "category": "programma",
+        "label": "borderline"
+    },
+    {
+        "question": "Come sono andate le ultime elezioni?",
+        "category": "programma",
+        "label": "borderline"
+    }
+]

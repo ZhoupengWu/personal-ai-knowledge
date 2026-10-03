@@ -21,7 +21,7 @@ CATEGORY_MODELS = {
     },
     "programma": {
         "model": "intfloat/multilingual-e5-large",
-        "min_sim": 0.79
+        "min_sim": 0.8
     }
 }
 

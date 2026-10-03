@@ -84,6 +84,29 @@ def summarize(results: list[dict], threshold: float) -> dict:
 
     return summary
 
+def sweepThresholds(threshold: float) -> list[float]:
+    step = 0.01 if threshold >= 0.7 else 0.05
+
+    return [round(threshold + step * k, 2) for k in range(-2, 5)]
+
+def sweep(results: list[dict], thresholds: list[float]) -> list[dict]:
+    relevant = [r for r in results if r["label"] == "pertinente" and r["scores"]]
+    off_topic = [r for r in results if r["label"] == "fuori_tema" and r["scores"]]
+    rows = []
+
+    for t in thresholds:
+        rows.append({
+            "threshold": t,
+            "answers_lost": sum(1 for r in relevant if r["scores"][0] < t),
+            "chunks_cut": sum(1 for r in relevant for s in r["scores"] if s < t),
+            "chunks_total": sum(len(r["scores"]) for r in relevant),
+            "leaked": sum(1 for r in off_topic if r["scores"][0] >= t),
+            "leaked_chunks": sum(1 for r in off_topic for s in r["scores"] if s >= t),
+            "n_off_topic": len(off_topic)
+        })
+
+    return rows
+
 def printReport(category: str, results: list[dict], summary: dict, verbose: bool = False):
     threshold = summary["threshold"]
     order = {label: i for i, label in enumerate(LABELS)}
@@ -130,6 +153,15 @@ def printReport(category: str, results: list[dict], summary: dict, verbose: bool
             print(f"Soglia suggerita: {summary['suggested']:.3f} ({detail})")
         else:
             print("Soglia suggerita: nessuna, i punteggi di pertinenti e fuori tema si sovrappongono")
+
+    if summary["n_relevant"] and summary["n_off_topic"]:
+        print("\nSoglie a confronto:")
+        print(f"{'soglia':>7}  {'pertinenti senza chunk':>23}  {'chunk pertinenti tagliati':>26}  {'fuori tema che passano':>23}")
+
+        for row in sweep(results, sweepThresholds(threshold)):
+            mark = "  <- attuale" if row["threshold"] == threshold else ""
+            print(f"{row['threshold']:>7.2f}  {row['answers_lost']:>23}  {str(row['chunks_cut']) + '/' + str(row['chunks_total']):>26}  "
+                  f"{str(row['leaked']) + '/' + str(row['n_off_topic']) + ' (' + str(row['leaked_chunks']) + ' chunk)':>23}{mark}")
 
     print(f"\nCon la soglia attuale ({threshold}):")
 

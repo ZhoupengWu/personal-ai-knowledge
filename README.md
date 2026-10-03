@@ -16,6 +16,7 @@ Sistema RAG (Retrieval-Augmented Generation) per indicizzare note personali e do
     - [Fare domande](#fare-domande)
     - [Modalità di risposta](#modalità-di-risposta)
     - [Output](#output)
+    - [Valutare le soglie](#valutare-le-soglie)
   - [Struttura del progetto](#struttura-del-progetto)
   - [Dettagli tecnici](#dettagli-tecnici)
     - [Chunking](#chunking)
@@ -71,7 +72,7 @@ cd personal-ai-knowledge
 python -m venv .venv
 source .venv/bin/activate        # Windows: .venv\Scripts\activate
 
-pip install -r requirements.txt
+pip install sentence-transformers numpy pypdf openai python-dotenv
 ```
 
 ## Configurazione
@@ -120,7 +121,7 @@ python src/cli.py query "<domanda>" [opzioni]
 | `text` | (obbligatorio) | La domanda |
 | `--category` | `note` | Categoria su cui cercare, la stessa usata in indicizzazione |
 | `--top-k` | `5` | Numero massimo di chunk passati al modello |
-| `--min-sim` | per categoria (`note` 0.40, `programma` 0.79) | Soglia minima di similarità: se indicata sostituisce quella della categoria (vedi [Calibrazione](#calibrazione-della-soglia)) |
+| `--min-sim` | per categoria (`note` 0.40, `programma` 0.80) | Soglia minima di similarità: se indicata sostituisce quella della categoria (vedi [Calibrazione](#calibrazione-della-soglia)) |
 | `--mode` | `strict` | Modalità di risposta (vedi sotto) |
 | `--show-chunks` | disattivato | Stampa i chunk recuperati con testo, punteggio e fonte prima della risposta |
 | `--temperature` | per modalità (`strict` 0.0, `standard` 0.3, `full` 0.6) | Temperatura di generazione: più bassa = risposte più stabili. Se indicata sostituisce quella della modalità |
@@ -145,6 +146,23 @@ Con `standard` e `full`, se la ricerca non trova chunk sopra soglia il modello v
 
 Ogni risposta mostra il testo generato, le fonti consultate e il consumo di token (input, cache, output, reasoning, totale).
 
+### Valutare le soglie
+
+```bash
+python src/cli.py eval eval/questions.json [--top-k 5] [--verbose]
+```
+
+Non chiama l'LLM: fa solo la ricerca. Va lanciato dalla cartella che contiene `test.db`. Ogni domanda del file JSON ha:
+
+| Campo | Descrizione |
+|---|---|
+| `question` | La domanda |
+| `category` | Categoria su cui cercare (`note` o `programma`) |
+| `label` | `pertinente`, `fuori_tema` oppure `borderline` (vicina per tema ma senza risposta nel testo: viene mostrata ma non entra nel calcolo) |
+| `expected_source` | Facoltativo: file, o lista di file, da cui ci si aspetta il primo risultato |
+
+Per ogni categoria il comando stampa i punteggi per domanda, i margini tra pertinenti e fuori tema, una soglia suggerita, una tabella che confronta soglie vicine (pertinenti senza chunk, chunk pertinenti tagliati, fuori tema che passano) e cosa succede con la soglia attuale. Conviene rilanciarlo quando cambiano il corpus, il chunking o il modello.
+
 ## Struttura del progetto
 
 ```
@@ -156,7 +174,10 @@ personal-ai-knowledge/
 │   ├── storage.py      # SQLite: chunk, log delle query, salvataggio risposte
 │   ├── search.py       # similarità coseno e ranking
 │   ├── generation.py   # client API, system prompt delle tre modalità
+│   ├── evaluation.py   # calcolo e report per il comando eval
 │   └── readers.py      # lettura di .md e .pdf
+├── eval/
+│   └── questions.json  # domande etichettate per calibrare le soglie
 ├── log_data_answer/    # una risposta per file di testo, creata alla prima query
 ├── .env.example
 └── README.md
@@ -178,7 +199,7 @@ La divisione in frasi è basata su regex: abbreviazioni come "Dott." possono pro
 | Categoria | Modello | Contesto | Soglia (`min_sim`) | Note |
 |---|---|---|---|---|
 | `note` | `paraphrase-multilingual-mpnet-base-v2` | 128 token | 0.40 | adatto a prosa breve |
-| `programma` | `intfloat/multilingual-e5-large` | 512 token | 0.79 | richiede i prefissi `query:` e `passage:`, applicati automaticamente |
+| `programma` | `intfloat/multilingual-e5-large` | 512 token | 0.80 | richiede i prefissi `query:` e `passage:`, applicati automaticamente |
 
 Modello e soglia di ogni categoria sono definiti nel dizionario `CATEGORY_MODELS` in `cli.py`.
 
@@ -192,12 +213,16 @@ Similarità coseno tra domanda e chunk della categoria, ordinamento decrescente,
 
 ### Calibrazione della soglia
 
-I punteggi di similarità non hanno lo stesso significato in modelli diversi, quindi la soglia è per categoria. Per calibrarla si lanciano domande pertinenti e fuori tema con `--min-sim 0 --show-chunks` e si annota il punteggio dei chunk recuperati.
+I punteggi di similarità non hanno lo stesso significato in modelli diversi, quindi la soglia è per categoria. Si calibra con il comando `eval` (vedi [Valutare le soglie](#valutare-le-soglie)), che legge domande etichettate come pertinenti, fuori tema o borderline e confronta i punteggi di **tutti** i chunk recuperati.
 
-| Categoria | Pertinenti | Fuori tema | Soglia scelta |
+Risultati su 55 domande (15 + 11 + 4 per `note`, 14 + 7 + 4 per `programma`):
+
+| Categoria | Pertinenti (1° chunk) | Fuori tema (chunk più alto) | Soglia scelta |
 |---|---|---|---|
-| `programma` (e5) | 0.807 – 0.837 | fino a 0.775 (0.815 per una domanda che tocca davvero il tema del cibo) | **0.79**, a metà del vuoto tra i due gruppi |
-| `note` (mpnet) | 0.548 – 0.765 | 0.09 – 0.20, ma un caso a **0.555** | **0.40**, cautelativa: privilegia non perdere risposte |
+| `programma` (e5) | 0.831 – 0.881 | fino a 0.796 | **0.80**: nessuna risposta persa, 1 chunk su 70 tagliato, nessun fuori tema passa |
+| `note` (mpnet) | 0.534 – 0.853 | fino a 0.571 | **0.40**: nessuna risposta persa, ma 5 fuori tema su 11 hanno chunk sopra soglia |
+
+Per `note` una soglia più alta (0.50) ridurrebbe i chunk irrilevanti da 14 a 4, ma si avvicina troppo ai punteggi delle pertinenti più deboli (0.534): perdere del tutto una risposta che esiste è peggio di passare un chunk in più al modello, e in `strict` il prompt gestisce comunque il secondo caso.
 
 Con `multilingual-e5-large` tutti i punteggi cadono in una fascia stretta (circa 0.74–0.84) anche per testi scorrelati, quindi la soglia è un filtro grezzo: scarta gli argomenti estranei, non le domande vicine per tema ma senza risposta nel testo. In quel caso decide la modalità `strict`. Il campione di calibrazione è piccolo (poche decine di domande), e va ripetuto se cambia il corpus.
 
@@ -213,12 +238,12 @@ Il log è in un database separato da quello dei chunk, così si può ricreare `t
 
 ## Privacy
 
-Indicizzazione e ricerca avvengono in locale, ma per generare la risposta il testo dei chunk recuperati e la domanda vengono **inviati al provider API**. Non indicizzare con questo strumento contenuti che non vuoi condividere con il provider, oppure usa un modello locale al posto dell'API.
+Indicizzazione e ricerca avvengono in locale, ma per generare la risposta il testo dei chunk recuperati e la domanda vengono **inviati al provider API**. Non indicizzare con questo strumento contenuti che non vuoi condividere con il provider oppure usa un modello locale al posto dell'API.
 
 ## Limiti noti
 
 - **Le soglie di similarità non sono confrontabili tra modelli** e vanno calibrate per ciascuno (vedi [Calibrazione](#calibrazione-della-soglia)). Con `multilingual-e5-large` i punteggi si concentrano in una fascia stretta e un margine di pochi centesimi separa il pertinente dal fuori tema.
-- **La similarità coseno non separa nettamente** contenuti rilevanti e irrilevanti, nemmeno dopo la calibrazione. In `note` una domanda geografica fuori tema ha recuperato chunk sul caffè con punteggio 0.555, più alto di alcuni chunk pertinenti: una soglia assoluta non può escluderla senza tagliare risposte valide. Il filtro è grezzo e il secondo controllo è il prompt di `strict`.
+- **La similarità coseno non separa nettamente** contenuti rilevanti e irrilevanti, nemmeno dopo la calibrazione. In `note` domande fuori tema come "Come si prepara il tè?" recuperano chunk sul caffè con punteggio 0.57, più alto di alcune pertinenti (0.53): una soglia assoluta non può escluderle senza tagliare risposte valide. Il filtro è grezzo e il secondo controllo è il prompt di `strict`.
 - **`standard` e `full` possono trattare chunk poco pertinenti come fonti valide**, e le fonti elencate non garantiscono che ogni affermazione della risposta derivi da esse. In `full` testo e interpretazione del modello possono fondersi.
 - **Risposte non identiche tra una esecuzione e l'altra**: la temperatura è bassa o nulla in `strict` e `standard`, quindi le risposte sono molto simili, ma il provider non garantisce un output uguale parola per parola. In `full` la variazione è voluta.
 - Nessuna memoria tra le domande: ogni query è indipendente.
@@ -240,10 +265,10 @@ Indicizzazione e ricerca avvengono in locale, ma per generare la risposta il tes
 - [x] Calibrazione su domande pertinenti e fuori tema per ogni categoria
 - [x] `min_sim` di default legato alla categoria, con `--min-sim` come override
 - [x] Temperatura legata alla modalità, con `--temperature` come override
+- [x] Comando `eval` per calibrare le soglie su domande etichettate
 
 **Prossimo step**
 - [ ] Re-ranking dei chunk recuperati (la soglia da sola non separa i casi vicini per tema o i falsi positivi in `note`)
-- [ ] Campione di calibrazione più ampio, con più fuori tema "vicini"
 
 **Secondari**
 - [ ] Costo cumulativo delle query
