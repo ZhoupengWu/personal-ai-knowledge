@@ -180,7 +180,10 @@ personal-ai-knowledge/
 │   └── questions.json  # domande etichettate per calibrare le soglie
 ├── log_data_answer/    # una risposta per file di testo, creata alla prima query
 ├── .env.example
-└── README.md
+├── .gitignore
+├── requirements.txt
+├── README.md
+└── ROADMAP.md
 ```
 
 I database `test.db` (chunk) e `logs_v2.db` (log delle query) vengono creati nella cartella da cui si lancia il comando.
@@ -252,29 +255,4 @@ Indicizzazione e ricerca avvengono in locale, ma per generare la risposta il tes
 
 ## Roadmap
 
-**Completato**
-- [x] Chunking per parole e per frasi
-- [x] Storage SQLite e retrieval con soglia minima
-- [x] Generazione con elenco delle fonti
-- [x] Supporto PDF
-- [x] Embedding multi-modello per categoria
-- [x] Tre modalità di risposta (`strict`, `standard`, `full`)
-- [x] Log strutturato delle query e salvataggio delle risposte
-
-- [x] Flag `--show-chunks` per vedere testo e punteggio dei chunk recuperati
-- [x] Calibrazione su domande pertinenti e fuori tema per ogni categoria
-- [x] `min_sim` di default legato alla categoria, con `--min-sim` come override
-- [x] Temperatura legata alla modalità, con `--temperature` come override
-- [x] Comando `eval` per calibrare le soglie su domande etichettate
-
-**Prossimo step**
-- [ ] Re-ranking dei chunk recuperati (la soglia da sola non separa i casi vicini per tema o i falsi positivi in `note`)
-
-**Secondari**
-- [ ] Costo cumulativo delle query
-- [ ] Modalità interattiva (REPL) per non ricaricare il modello a ogni comando
-- [ ] `sqlite-vec` per la ricerca vettoriale nel database (se il volume lo giustifica)
-- [ ] Watcher sulla cartella indicizzata
-- [ ] Cronologia conversazionale e streaming della risposta
-- [ ] Re-ranking e multi-query
-- [ ] Sync remoto
+Lo stato del progetto e i prossimi passi sono in [ROADMAP.md](ROADMAP.md).
