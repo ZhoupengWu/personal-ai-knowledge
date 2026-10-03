@@ -12,6 +12,7 @@ from embedding import loadModel, embeddedTexts
 from search import search
 from generation import createClient, generateAnswer
 from readers import readFile
+from evaluation import loadQuestions, groupByCategory, scoreQuestions, summarize, printReport
 
 CATEGORY_MODELS = {
     "note": {
@@ -139,6 +140,35 @@ query_parser.add_argument(
          "Se omessa, dipende dalla modalità: strict 0.0, standard 0.3, full 0.6."
 )
 
+#
+# eval command
+#
+eval_parser = subparsers.add_parser(
+    "eval",
+    help="Valuta le soglie di similarità su un insieme di domande etichettate senza chiamare l'LLM.",
+    description="Per ogni domanda del file JSON cerca i chunks più simili e riassume come si separano le domande pertinenti da quelle fuori tema, "
+         "per verificare o calibrare la soglia di ogni categoria. Non usa l'api: serve solo per la ricerca."
+)
+
+eval_parser.add_argument(
+    "file",
+    help="Percorso del file JSON con le domande. Ogni elemento ha: question, category, label (pertinente, borderline o fuori_tema) "
+         "e, facoltativo, expected_source (file da cui ci si aspetta il primo risultato)."
+)
+
+eval_parser.add_argument(
+    "--top-k",
+    type=int,
+    default=5,
+    help="Numero di chunk analizzati per ogni domanda: tutti i loro punteggi entrano nel riepilogo (default: 5)."
+)
+
+eval_parser.add_argument(
+    "--verbose",
+    action="store_true",
+    help="Stampa anche punteggio e fonte di ogni chunk recuperato per ogni domanda."
+)
+
 
 args = parser.parse_args()
 
@@ -251,5 +281,30 @@ elif args.command == "query":
     print("=====")
 
     saveAnswerToFile(query, answer_text, timestamp, sources, mode, category)
+elif args.command == "eval":
+    try:
+        questions = loadQuestions(args.file, list(CATEGORY_MODELS.keys()))
+    except (OSError, ValueError) as e:
+        print(f"Impossibile leggere le domande: {e}")
+
+        sys.exit(1)
+
+    conn_chunk = createConnection("test.db")
+    createTableChunk(conn_chunk)
+
+    for category, group in groupByCategory(questions).items():
+        hf_model_name = CATEGORY_MODELS[category]["model"]
+        threshold = CATEGORY_MODELS[category]["min_sim"]
+        chunks = getChunksByModel(conn_chunk, hf_model_name)
+
+        if chunks is None:
+            print(f"Categoria {category}: nessun chunk indicizzato, viene saltato")
+
+            continue
+
+        model = loadModel(hf_model_name)
+        results = scoreQuestions(model, hf_model_name, chunks, group, args.top_k)
+        summary = summarize(results, threshold)
+        printReport(category, results, summary, args.verbose)
 else:
     parser.print_help()
