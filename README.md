@@ -72,7 +72,7 @@ cd personal-ai-knowledge
 python -m venv .venv
 source .venv/bin/activate        # Windows: .venv\Scripts\activate
 
-pip install sentence-transformers numpy pypdf openai python-dotenv
+pip install -r requirements.txt
 ```
 
 ## Configurazione
