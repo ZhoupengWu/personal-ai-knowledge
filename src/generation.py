@@ -25,14 +25,21 @@ Regole per rispondere:
 - Rispondi in modo naturale, diretto e completo.""",
 }
 
+TEMPERATURE = {
+    "strict": 0.0,
+    "standard": 0.3,
+    "full": 0.6
+}
+
 def createClient(api_key: str) -> OpenAI:
     return OpenAI(
         api_key=api_key,
         base_url="https://api.deepseek.com"
     )
 
-def generateAnswer(client: OpenAI, model_name: str, chunks: list[tuple], question: str, mode: str):
+def generateAnswer(client: OpenAI, model_name: str, chunks: list[tuple], question: str, mode: str, temperature: float | None):
     system_content = SYSTEM_PROMPT[mode]
+    temperature = temperature if temperature is not None else TEMPERATURE[mode]
 
     text = " --- ".join(a[0] for a in chunks)
     user_content = f"<context> {text if text else "Nessuna informazione disponibile"} </context> {question}"
@@ -49,6 +56,7 @@ def generateAnswer(client: OpenAI, model_name: str, chunks: list[tuple], questio
                 "content": user_content
             }
         ],
+        temperature=temperature,
         extra_body={
             "thinking": {
                 "type": "disabled"

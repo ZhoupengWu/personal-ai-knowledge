@@ -131,6 +131,14 @@ query_parser.add_argument(
          "Utile per verificare cosa riceve il modello e per calibrare --min-sim."
 )
 
+query_parser.add_argument(
+    "--temperature",
+    type=float,
+    default=None,
+    help="Temperatura di generazione (0 = risposte più stabili e ripetibili, valori più alti = più variabili). "
+         "Se omessa, dipende dalla modalità: strict 0.0, standard 0.3, full 0.6."
+)
+
 
 args = parser.parse_args()
 
@@ -224,7 +232,7 @@ elif args.command == "query":
 
     sources_set = set([a[2] for a in result])
     sources: str = ", ".join(source for source in sources_set)
-    answer_text, usage = generateAnswer(client, api_model_name, result, query, mode)
+    answer_text, usage = generateAnswer(client, api_model_name, result, query, mode, args.temperature)
     elapsed_time = time.time() - start_time
 
     timestamp = datetime.now(timezone.utc).isoformat()

@@ -21,6 +21,7 @@ Sistema RAG (Retrieval-Augmented Generation) per indicizzare note personali e do
     - [Chunking](#chunking)
     - [Embedding per categoria](#embedding-per-categoria)
     - [Retrieval](#retrieval)
+    - [Calibrazione della soglia](#calibrazione-della-soglia)
     - [Generazione](#generazione)
     - [Log](#log)
   - [Privacy](#privacy)
@@ -33,7 +34,8 @@ Sistema RAG (Retrieval-Augmented Generation) per indicizzare note personali e do
 - Chunking per frasi (non spezza le frasi a metà) con overlap configurabile, oppure per numero fisso di parole
 - Embedding multilingua con **modello diverso per categoria di contenuto** (`note`, `programma`)
 - Storage locale su **SQLite**
-- Ricerca semantica per similarità coseno con soglia minima configurabile
+- Ricerca semantica per similarità coseno con **soglia minima calibrata per categoria** (modificabile da riga di comando)
+- Opzione `--show-chunks` per vedere i chunk recuperati e i loro punteggi
 - **Tre modalità di risposta** (`strict`, `standard`, `full`) che regolano quanto il modello può uscire dalle fonti indicizzate
 - Elenco delle fonti consultate per ogni risposta
 - Log strutturato di ogni query (modalità, fonti, token, tempi) e risposta salvata su file di testo
@@ -118,8 +120,10 @@ python src/cli.py query "<domanda>" [opzioni]
 | `text` | (obbligatorio) | La domanda |
 | `--category` | `note` | Categoria su cui cercare, la stessa usata in indicizzazione |
 | `--top-k` | `5` | Numero massimo di chunk passati al modello |
-| `--min-sim` | `0.4` | Soglia minima di similarità (vedi [Limiti noti](#limiti-noti)) |
+| `--min-sim` | per categoria (`note` 0.40, `programma` 0.79) | Soglia minima di similarità: se indicata sostituisce quella della categoria (vedi [Calibrazione](#calibrazione-della-soglia)) |
 | `--mode` | `strict` | Modalità di risposta (vedi sotto) |
+| `--show-chunks` | disattivato | Stampa i chunk recuperati con testo, punteggio e fonte prima della risposta |
+| `--temperature` | per modalità (`strict` 0.0, `standard` 0.3, `full` 0.6) | Temperatura di generazione: più bassa = risposte più stabili. Se indicata sostituisce quella della modalità |
 
 Esempio:
 
@@ -171,10 +175,12 @@ La divisione in frasi è basata su regex: abbreviazioni come "Dott." possono pro
 
 ### Embedding per categoria
 
-| Categoria | Modello | Contesto | Note |
-|---|---|---|---|
-| `note` | `paraphrase-multilingual-mpnet-base-v2` | 128 token | adatto a prosa breve |
-| `programma` | `intfloat/multilingual-e5-large` | 512 token | richiede i prefissi `query:` e `passage:`, applicati automaticamente |
+| Categoria | Modello | Contesto | Soglia (`min_sim`) | Note |
+|---|---|---|---|---|
+| `note` | `paraphrase-multilingual-mpnet-base-v2` | 128 token | 0.40 | adatto a prosa breve |
+| `programma` | `intfloat/multilingual-e5-large` | 512 token | 0.79 | richiede i prefissi `query:` e `passage:`, applicati automaticamente |
+
+Modello e soglia di ogni categoria sono definiti nel dizionario `CATEGORY_MODELS` in `cli.py`.
 
 Il limite di token è importante: un modello tronca **in silenzio** il testo oltre il proprio limite, quindi frasi molto lunghe con il modello a 128 token perdono la parte finale. Per questo la categoria `programma` usa il modello a 512 token.
 
@@ -182,11 +188,22 @@ Ogni chunk viene salvato con il nome del modello che ha prodotto il suo embeddin
 
 ### Retrieval
 
-Similarità coseno tra domanda e chunk della categoria, ordinamento decrescente, scarto dei risultati sotto `--min-sim`, primi `--top-k`. Il confronto è calcolato in Python su tutti i chunk della categoria.
+Similarità coseno tra domanda e chunk della categoria, ordinamento decrescente, scarto dei risultati sotto la soglia (quella della categoria o `--min-sim`), primi `--top-k`. Il confronto è calcolato in Python su tutti i chunk della categoria.
+
+### Calibrazione della soglia
+
+I punteggi di similarità non hanno lo stesso significato in modelli diversi, quindi la soglia è per categoria. Per calibrarla si lanciano domande pertinenti e fuori tema con `--min-sim 0 --show-chunks` e si annota il punteggio dei chunk recuperati.
+
+| Categoria | Pertinenti | Fuori tema | Soglia scelta |
+|---|---|---|---|
+| `programma` (e5) | 0.807 – 0.837 | fino a 0.775 (0.815 per una domanda che tocca davvero il tema del cibo) | **0.79**, a metà del vuoto tra i due gruppi |
+| `note` (mpnet) | 0.548 – 0.765 | 0.09 – 0.20, ma un caso a **0.555** | **0.40**, cautelativa: privilegia non perdere risposte |
+
+Con `multilingual-e5-large` tutti i punteggi cadono in una fascia stretta (circa 0.74–0.84) anche per testi scorrelati, quindi la soglia è un filtro grezzo: scarta gli argomenti estranei, non le domande vicine per tema ma senza risposta nel testo. In quel caso decide la modalità `strict`. Il campione di calibrazione è piccolo (poche decine di domande), e va ripetuto se cambia il corpus.
 
 ### Generazione
 
-I chunk recuperati vengono passati al modello dentro un blocco `<context>`, insieme a un system prompt diverso per ogni modalità. La thinking mode del provider è disattivata. Il modello non ha accesso a file, database o web: vede solo quei frammenti.
+I chunk recuperati vengono passati al modello dentro un blocco `<context>`, insieme a un system prompt diverso per ogni modalità. La thinking mode del provider è disattivata. La temperatura dipende dalla modalità (0.0 in `strict` per la fedeltà alla fonte, più alta nelle altre per lasciare spazio all'integrazione) e si può sovrascrivere con `--temperature`. Il modello non ha accesso a file, database o web: vede solo quei frammenti.
 
 ### Log
 
@@ -200,10 +217,10 @@ Indicizzazione e ricerca avvengono in locale, ma per generare la risposta il tes
 
 ## Limiti noti
 
-- **Le soglie di similarità non sono confrontabili tra modelli.** Con `multilingual-e5-large` i punteggi si concentrano in una fascia alta anche per testi scorrelati: una domanda fuori tema ha superato la soglia di default e ha richiesto `--min-sim 0.9` per non recuperare chunk. Il default `0.4` è tarato sulla categoria `note` e con `programma` filtra poco.
-- **In generale la similarità coseno non separa nettamente** contenuti rilevanti e irrilevanti; la soglia è un filtro grezzo.
+- **Le soglie di similarità non sono confrontabili tra modelli** e vanno calibrate per ciascuno (vedi [Calibrazione](#calibrazione-della-soglia)). Con `multilingual-e5-large` i punteggi si concentrano in una fascia stretta e un margine di pochi centesimi separa il pertinente dal fuori tema.
+- **La similarità coseno non separa nettamente** contenuti rilevanti e irrilevanti, nemmeno dopo la calibrazione. In `note` una domanda geografica fuori tema ha recuperato chunk sul caffè con punteggio 0.555, più alto di alcuni chunk pertinenti: una soglia assoluta non può escluderla senza tagliare risposte valide. Il filtro è grezzo e il secondo controllo è il prompt di `strict`.
 - **`standard` e `full` possono trattare chunk poco pertinenti come fonti valide**, e le fonti elencate non garantiscono che ogni affermazione della risposta derivi da esse. In `full` testo e interpretazione del modello possono fondersi.
-- **Risposte non deterministiche**: la temperatura non è impostata, quindi la stessa domanda può dare risposte diverse.
+- **Risposte non identiche tra una esecuzione e l'altra**: la temperatura è bassa o nulla in `strict` e `standard`, quindi le risposte sono molto simili, ma il provider non garantisce un output uguale parola per parola. In `full` la variazione è voluta.
 - Nessuna memoria tra le domande: ogni query è indipendente.
 - I PDF scansionati (immagini) non sono supportati; l'estrazione del testo da PDF può produrre interruzioni di riga irregolari.
 - Con molte migliaia di chunk la ricerca in Python puro rallenterà.
@@ -219,11 +236,14 @@ Indicizzazione e ricerca avvengono in locale, ma per generare la risposta il tes
 - [x] Tre modalità di risposta (`strict`, `standard`, `full`)
 - [x] Log strutturato delle query e salvataggio delle risposte
 
-**Prossimo step: soglia di similarità per categoria**
-- [ ] Flag `--show-chunks` per vedere testo e punteggio dei chunk recuperati (utile anche per verificare la fedeltà delle risposte)
-- [ ] Calibrazione su domande pertinenti e fuori tema per ogni categoria
-- [ ] `min_sim` di default legato alla categoria, con `--min-sim` come override
-- [ ] Se i punteggi si sovrappongono: soglia relativa al miglior risultato, o re-ranking
+- [x] Flag `--show-chunks` per vedere testo e punteggio dei chunk recuperati
+- [x] Calibrazione su domande pertinenti e fuori tema per ogni categoria
+- [x] `min_sim` di default legato alla categoria, con `--min-sim` come override
+- [x] Temperatura legata alla modalità, con `--temperature` come override
+
+**Prossimo step**
+- [ ] Re-ranking dei chunk recuperati (la soglia da sola non separa i casi vicini per tema o i falsi positivi in `note`)
+- [ ] Campione di calibrazione più ampio, con più fuori tema "vicini"
 
 **Secondari**
 - [ ] Costo cumulativo delle query
