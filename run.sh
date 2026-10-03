@@ -91,7 +91,7 @@ interactiveEval() {
     read -e -r -p "File delle domande [eval/questions.json]: " file
     file="${file:-eval/questions.json}"
 
-    askExtraArgs "--top-k N  --verbose"
+    askExtraArgs "--top-k N  --verbose  --rerank  --pool N  --rerank-min X"
     runCommand eval "$file" "${EXTRA_ARGS[@]}"
 }
 

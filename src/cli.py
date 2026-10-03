@@ -12,7 +12,8 @@ from embedding import loadModel, embeddedTexts
 from search import search
 from generation import createClient, generateAnswer
 from readers import readFile
-from evaluation import loadQuestions, groupByCategory, scoreQuestions, summarize, printReport
+from evaluation import loadQuestions, groupByCategory, scoreQuestions, summarize, printReport, RERANK_SWEEP
+from reranking import loadReranker
 
 CATEGORY_MODELS = {
     "note": {
@@ -169,6 +170,26 @@ eval_parser.add_argument(
     help="Stampa anche punteggio e fonte di ogni chunk recuperato per ogni domanda."
 )
 
+eval_parser.add_argument(
+    "--rerank",
+    action="store_true",
+    help="Dopo il report normale, ripete la valutazione con il re-ranking (cross-encoder) per confrontare i risultati."
+)
+
+eval_parser.add_argument(
+    "--pool",
+    type=int,
+    default=20,
+    help="Numero di candidati presi dalla ricerca e passati al re-ranker (default: 20)."
+)
+
+eval_parser.add_argument(
+    "--rerank-min",
+    type=float,
+    default=0.5,
+    help="Soglia provvisoria sul punteggio del re-ranker (0-1) usata nel report (default: 0.5)."
+)
+
 
 args = parser.parse_args()
 
@@ -292,6 +313,8 @@ elif args.command == "eval":
     conn_chunk = createConnection("test.db")
     createTableChunk(conn_chunk)
 
+    reranker = loadReranker() if args.rerank else None
+
     for category, group in groupByCategory(questions).items():
         hf_model_name = CATEGORY_MODELS[category]["model"]
         threshold = CATEGORY_MODELS[category]["min_sim"]
@@ -306,5 +329,10 @@ elif args.command == "eval":
         results = scoreQuestions(model, hf_model_name, chunks, group, args.top_k)
         summary = summarize(results, threshold)
         printReport(category, results, summary, args.verbose)
+
+        if reranker is not None:
+            rr_results = scoreQuestions(model, hf_model_name, chunks, group, args.top_k, reranker, args.pool)
+            rr_summary = summarize(rr_results, args.rerank_min)
+            printReport(category, rr_results, rr_summary, args.verbose, RERANK_SWEEP, "re-ranking")
 else:
     parser.print_help()

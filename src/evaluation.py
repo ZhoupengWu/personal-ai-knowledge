@@ -1,9 +1,13 @@
 import json
 from embedding import embeddedTexts
 from search import search
+from reranking import rerank
 
 LABELS = ("pertinente", "borderline", "fuori_tema")
 REQUIRED_FIELDS = ("question", "category", "label")
+
+# i punteggi del re-ranker sono vicini a 0 o a 1: soglie a passi irregolari mostrano meglio dove cade il salto
+RERANK_SWEEP = [0.01, 0.05, 0.1, 0.2, 0.3, 0.5, 0.7, 0.9]
 
 def loadQuestions(path: str, valid_categories: list[str]) -> list[dict]:
     with open(path, encoding="utf-8") as f:
@@ -33,12 +37,16 @@ def groupByCategory(questions: list[dict]) -> dict[str, list[dict]]:
 
     return groups
 
-def scoreQuestions(model, hf_model_name: str, chunks: list[tuple], questions: list[dict], top_k: int) -> list[dict]:
+def scoreQuestions(model, hf_model_name: str, chunks: list[tuple], questions: list[dict], top_k: int, reranker=None, pool: int = 20) -> list[dict]:
     embeddings = embeddedTexts(model, [q["question"] for q in questions], hf_model_name, "query")
     results = []
 
     for q, embedding in zip(questions, embeddings):
-        found = search(embedding, chunks, top_k, -1.0)
+        if reranker is None:
+            found = search(embedding, chunks, top_k, -1.0)
+        else:
+            candidates = search(embedding, chunks, max(pool, top_k), -1.0)
+            found = rerank(reranker, q["question"], candidates, top_k)
 
         results.append({
             "question": q["question"],
@@ -107,12 +115,18 @@ def sweep(results: list[dict], thresholds: list[float]) -> list[dict]:
 
     return rows
 
-def printReport(category: str, results: list[dict], summary: dict, verbose: bool = False):
+def printReport(category: str, results: list[dict], summary: dict, verbose: bool = False, sweep_values: list[float] | None = None, label: str = ""):
     threshold = summary["threshold"]
-    order = {label: i for i, label in enumerate(LABELS)}
+    order = {name: i for i, name in enumerate(LABELS)}
     sorted_results = sorted(results, key=lambda r: (order[r["label"]], -r["scores"][0] if r["scores"] else 0))
+    suffix = f" [{label}]" if label else ""
 
-    print(f"\n=== Categoria: {category} (soglia attuale {threshold}) ===\n")
+    print(f"\n=== Categoria: {category}{suffix} (soglia {threshold}) ===\n")
+
+    if label:
+        print("Nota: con questo metodo i chunk in coda alle domande pertinenti hanno spesso punteggio basso perché non rispondono;\n"
+              "conta soprattutto il primo risultato e il confronto con i fuori tema.\n")
+
     print(f"{'etichetta':<11} {'1°':>6} {'ultimo':>7}  {'esito':<10} {'fonte':<6} domanda")
 
     for r in sorted_results:
@@ -158,7 +172,9 @@ def printReport(category: str, results: list[dict], summary: dict, verbose: bool
         print("\nSoglie a confronto:")
         print(f"{'soglia':>7}  {'pertinenti senza chunk':>23}  {'chunk pertinenti tagliati':>26}  {'fuori tema che passano':>23}")
 
-        for row in sweep(results, sweepThresholds(threshold)):
+        thresholds = sweepThresholds(threshold) if sweep_values is None else sorted(set(sweep_values) | {threshold})
+
+        for row in sweep(results, thresholds):
             mark = "  <- attuale" if row["threshold"] == threshold else ""
             print(f"{row['threshold']:>7.2f}  {row['answers_lost']:>23}  {str(row['chunks_cut']) + '/' + str(row['chunks_total']):>26}  "
                   f"{str(row['leaked']) + '/' + str(row['n_off_topic']) + ' (' + str(row['leaked_chunks']) + ' chunk)':>23}{mark}")
