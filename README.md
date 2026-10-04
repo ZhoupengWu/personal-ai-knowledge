@@ -107,7 +107,7 @@ python src/cli.py index <cartella> [opzioni]
 Esempio:
 
 ```bash
-python src/cli.py index ./documenti/programma --category programma
+python src/cli.py index ./documenti/programma --category programma --dimension 150 --overlap 1
 ```
 
 Rilanciare `index` su una cartella già indicizzata è sicuro: i chunk di ogni file vengono cancellati e ricreati, senza duplicati.
@@ -125,7 +125,7 @@ python src/cli.py query "<domanda>" [opzioni]
 | `--top-k` | `5` | Numero massimo di chunk passati al modello |
 | `--min-sim` | per categoria (`note` 0.40, `programma` 0.80) | Soglia minima di similarità: se indicata sostituisce quella della categoria (vedi [Calibrazione](#calibrazione-della-soglia)) |
 | `--rerank` | disattivato | Riordina i candidati con il cross-encoder `BAAI/bge-reranker-v2-m3` e scarta quelli sotto `--rerank-min`; con questa opzione `--min-sim` è ignorato (vedi [Re-ranking](#re-ranking)) |
-| `--rerank-min` | per categoria (`note` 0.06, `programma` 0.02) | Soglia (0-1) sul punteggio del re-ranker. Non è confrontabile con `--min-sim` |
+| `--rerank-min` | per categoria (`note` 0.06, `programma` 0.03) | Soglia (0-1) sul punteggio del re-ranker. Non è confrontabile con `--min-sim` |
 | `--pool` | `20` | Con `--rerank`: numero di candidati presi dalla ricerca e passati al re-ranker |
 | `--mode` | `strict` | Modalità di risposta (vedi sotto) |
 | `--show-chunks` | disattivato | Stampa i chunk recuperati con testo, punteggio e fonte prima della risposta |
@@ -229,7 +229,7 @@ Risultati sulle stesse 55 domande:
 | Categoria | Pertinenti (1° chunk) | Fuori tema (chunk più alto) | Soglia scelta |
 |---|---|---|---|
 | `note` | 0.094 – 1.000 | fino a 0.040 | **0.06**: nessuna risposta persa, nessun fuori tema passa (con il coseno 5 su 11) |
-| `programma` | 0.050 – 0.979 | 0.000 | **0.02**: nessuna risposta persa, nessun fuori tema passa |
+| `programma` | 0.079 – 0.989 | fino a 0.001 | **0.03**: nessuna risposta persa, nessun fuori tema passa, nessuna borderline passa |
 
 I punteggi del re-ranker sono molto polarizzati (vicini a 0 o a 1), quindi le soglie sono basse e il margine, soprattutto in `note` (0.040 contro 0.094), è stretto. Le domande ampie come "Cosa dice il programma sull'Unione Europea?" ottengono punteggi bassi anche se pertinenti. I chunk in coda alle domande pertinenti hanno spesso punteggi bassi perché non rispondono: con il re-ranking il contesto passato al modello è più corto e più mirato. Il vantaggio è netto su `note`; su `programma` il coseno separava già bene.
 
@@ -237,11 +237,11 @@ I punteggi del re-ranker sono molto polarizzati (vicini a 0 o a 1), quindi le so
 
 I punteggi di similarità non hanno lo stesso significato in modelli diversi, quindi la soglia è per categoria. Si calibra con il comando `eval` (vedi [Valutare le soglie](#valutare-le-soglie)), che legge domande etichettate come pertinenti, fuori tema o borderline e confronta i punteggi di **tutti** i chunk recuperati.
 
-Risultati su 55 domande (15 + 11 + 4 per `note`, 14 + 7 + 4 per `programma`):
+Risultati su 55 domande (15 + 11 + 4 per `note`, 14 + 7 + 4 per `programma`). Il programma è indicizzato con `--dimension 150 --overlap 1` (chunk da circa 160 parole); con 200 parole i punteggi erano simili, ma un chunk pertinente finiva sotto 0.80 e il margine sul chunk più debole era negativo:
 
 | Categoria | Pertinenti (1° chunk) | Fuori tema (chunk più alto) | Soglia scelta |
 |---|---|---|---|
-| `programma` (e5) | 0.831 – 0.881 | fino a 0.796 | **0.80**: nessuna risposta persa, 1 chunk su 70 tagliato, nessun fuori tema passa |
+| `programma` (e5, chunk da `--dimension 150`) | 0.831 – 0.881 | fino a 0.787 | **0.80**: nessuna risposta persa, nessun chunk pertinente tagliato, nessun fuori tema passa |
 | `note` (mpnet) | 0.534 – 0.853 | fino a 0.571 | **0.40**: nessuna risposta persa, ma 5 fuori tema su 11 hanno chunk sopra soglia |
 
 Per `note` una soglia più alta (0.50) ridurrebbe i chunk irrilevanti da 14 a 4, ma si avvicina troppo ai punteggi delle pertinenti più deboli (0.534): perdere del tutto una risposta che esiste è peggio di passare un chunk in più al modello, e in `strict` il prompt gestisce comunque il secondo caso.
