@@ -22,6 +22,7 @@ Sistema RAG (Retrieval-Augmented Generation) per indicizzare note personali e do
     - [Chunking](#chunking)
     - [Embedding per categoria](#embedding-per-categoria)
     - [Retrieval](#retrieval)
+    - [Re-ranking](#re-ranking)
     - [Calibrazione della soglia](#calibrazione-della-soglia)
     - [Generazione](#generazione)
     - [Log](#log)
@@ -37,6 +38,7 @@ Sistema RAG (Retrieval-Augmented Generation) per indicizzare note personali e do
 - Storage locale su **SQLite**
 - Ricerca semantica per similarità coseno con **soglia minima calibrata per categoria** (modificabile da riga di comando)
 - Opzione `--show-chunks` per vedere i chunk recuperati e i loro punteggi
+- **Re-ranking opzionale** (`--rerank`) con un cross-encoder multilingua, per filtrare meglio i risultati fuori tema
 - **Tre modalità di risposta** (`strict`, `standard`, `full`) che regolano quanto il modello può uscire dalle fonti indicizzate
 - Elenco delle fonti consultate per ogni risposta
 - Log strutturato di ogni query (modalità, fonti, token, tempi) e risposta salvata su file di testo
@@ -122,6 +124,9 @@ python src/cli.py query "<domanda>" [opzioni]
 | `--category` | `note` | Categoria su cui cercare, la stessa usata in indicizzazione |
 | `--top-k` | `5` | Numero massimo di chunk passati al modello |
 | `--min-sim` | per categoria (`note` 0.40, `programma` 0.80) | Soglia minima di similarità: se indicata sostituisce quella della categoria (vedi [Calibrazione](#calibrazione-della-soglia)) |
+| `--rerank` | disattivato | Riordina i candidati con il cross-encoder `BAAI/bge-reranker-v2-m3` e scarta quelli sotto `--rerank-min`; con questa opzione `--min-sim` è ignorato (vedi [Re-ranking](#re-ranking)) |
+| `--rerank-min` | per categoria (`note` 0.06, `programma` 0.02) | Soglia (0-1) sul punteggio del re-ranker. Non è confrontabile con `--min-sim` |
+| `--pool` | `20` | Con `--rerank`: numero di candidati presi dalla ricerca e passati al re-ranker |
 | `--mode` | `strict` | Modalità di risposta (vedi sotto) |
 | `--show-chunks` | disattivato | Stampa i chunk recuperati con testo, punteggio e fonte prima della risposta |
 | `--temperature` | per modalità (`strict` 0.0, `standard` 0.3, `full` 0.6) | Temperatura di generazione: più bassa = risposte più stabili. Se indicata sostituisce quella della modalità |
@@ -149,7 +154,7 @@ Ogni risposta mostra il testo generato, le fonti consultate e il consumo di toke
 ### Valutare le soglie
 
 ```bash
-python src/cli.py eval eval/questions.json [--top-k 5] [--verbose]
+python src/cli.py eval eval/questions.json [--top-k 5] [--verbose] [--rerank] [--pool 20] [--rerank-min 0.5]
 ```
 
 Non chiama l'LLM: fa solo la ricerca. Va lanciato dalla cartella che contiene `test.db`. Ogni domanda del file JSON ha:
@@ -161,7 +166,7 @@ Non chiama l'LLM: fa solo la ricerca. Va lanciato dalla cartella che contiene `t
 | `label` | `pertinente`, `fuori_tema` oppure `borderline` (vicina per tema ma senza risposta nel testo: viene mostrata ma non entra nel calcolo) |
 | `expected_source` | Facoltativo: file, o lista di file, da cui ci si aspetta il primo risultato |
 
-Per ogni categoria il comando stampa i punteggi per domanda, i margini tra pertinenti e fuori tema, una soglia suggerita, una tabella che confronta soglie vicine (pertinenti senza chunk, chunk pertinenti tagliati, fuori tema che passano) e cosa succede con la soglia attuale. Conviene rilanciarlo quando cambiano il corpus, il chunking o il modello.
+Per ogni categoria il comando stampa i punteggi per domanda, i margini tra pertinenti e fuori tema, una soglia suggerita, una tabella che confronta soglie vicine (pertinenti senza chunk, chunk pertinenti tagliati, fuori tema che passano) e cosa succede con la soglia attuale. Con `--rerank` ripete il report anche con il re-ranking (sezione `[re-ranking]`), con una tabella di soglie adatta ai suoi punteggi, così si confrontano i due metodi sulle stesse domande. Conviene rilanciarlo quando cambiano il corpus, il chunking o il modello.
 
 ## Struttura del progetto
 
@@ -173,6 +178,7 @@ personal-ai-knowledge/
 │   ├── embedding.py    # caricamento modelli, prefissi, generazione embedding
 │   ├── storage.py      # SQLite: chunk, log delle query, salvataggio risposte
 │   ├── search.py       # similarità coseno e ranking
+│   ├── reranking.py    # re-ranking con cross-encoder
 │   ├── generation.py   # client API, system prompt delle tre modalità
 │   ├── evaluation.py   # calcolo e report per il comando eval
 │   └── readers.py      # lettura di .md e .pdf
@@ -214,6 +220,19 @@ Ogni chunk viene salvato con il nome del modello che ha prodotto il suo embeddin
 
 Similarità coseno tra domanda e chunk della categoria, ordinamento decrescente, scarto dei risultati sotto la soglia (quella della categoria o `--min-sim`), primi `--top-k`. Il confronto è calcolato in Python su tutti i chunk della categoria.
 
+### Re-ranking
+
+Con `--rerank` la ricerca per coseno non decide più cosa passare al modello: prende un gruppo più ampio di candidati (`--pool`, default 20), un cross-encoder (`BAAI/bge-reranker-v2-m3`) legge domanda e chunk insieme e assegna un punteggio tra 0 e 1, si tengono i primi `--top-k` e si scartano quelli sotto `--rerank-min`. Il modello pesa circa 2 GB, si scarica al primo uso ed è molto più veloce con una GPU. Si ricarica a ogni esecuzione.
+
+Risultati sulle stesse 55 domande:
+
+| Categoria | Pertinenti (1° chunk) | Fuori tema (chunk più alto) | Soglia scelta |
+|---|---|---|---|
+| `note` | 0.094 – 1.000 | fino a 0.040 | **0.06**: nessuna risposta persa, nessun fuori tema passa (con il coseno 5 su 11) |
+| `programma` | 0.050 – 0.979 | 0.000 | **0.02**: nessuna risposta persa, nessun fuori tema passa |
+
+I punteggi del re-ranker sono molto polarizzati (vicini a 0 o a 1), quindi le soglie sono basse e il margine, soprattutto in `note` (0.040 contro 0.094), è stretto. Le domande ampie come "Cosa dice il programma sull'Unione Europea?" ottengono punteggi bassi anche se pertinenti. I chunk in coda alle domande pertinenti hanno spesso punteggi bassi perché non rispondono: con il re-ranking il contesto passato al modello è più corto e più mirato. Il vantaggio è netto su `note`; su `programma` il coseno separava già bene.
+
 ### Calibrazione della soglia
 
 I punteggi di similarità non hanno lo stesso significato in modelli diversi, quindi la soglia è per categoria. Si calibra con il comando `eval` (vedi [Valutare le soglie](#valutare-le-soglie)), che legge domande etichettate come pertinenti, fuori tema o borderline e confronta i punteggi di **tutti** i chunk recuperati.
@@ -246,7 +265,7 @@ Indicizzazione e ricerca avvengono in locale, ma per generare la risposta il tes
 ## Limiti noti
 
 - **Le soglie di similarità non sono confrontabili tra modelli** e vanno calibrate per ciascuno (vedi [Calibrazione](#calibrazione-della-soglia)). Con `multilingual-e5-large` i punteggi si concentrano in una fascia stretta e un margine di pochi centesimi separa il pertinente dal fuori tema.
-- **La similarità coseno non separa nettamente** contenuti rilevanti e irrilevanti, nemmeno dopo la calibrazione. In `note` domande fuori tema come "Come si prepara il tè?" recuperano chunk sul caffè con punteggio 0.57, più alto di alcune pertinenti (0.53): una soglia assoluta non può escluderle senza tagliare risposte valide. Il filtro è grezzo e il secondo controllo è il prompt di `strict`.
+- **La similarità coseno non separa nettamente** contenuti rilevanti e irrilevanti, nemmeno dopo la calibrazione. In `note` domande fuori tema come "Come si prepara il tè?" recuperano chunk sul caffè con punteggio 0.57, più alto di alcune pertinenti (0.53): una soglia assoluta non può escluderle senza tagliare risposte valide. Il filtro è grezzo: il re-ranking (`--rerank`) risolve questi casi nei test, altrimenti il secondo controllo è il prompt di `strict`.
 - **`standard` e `full` possono trattare chunk poco pertinenti come fonti valide**, e le fonti elencate non garantiscono che ogni affermazione della risposta derivi da esse. In `full` testo e interpretazione del modello possono fondersi.
 - **Risposte non identiche tra una esecuzione e l'altra**: la temperatura è bassa o nulla in `strict` e `standard`, quindi le risposte sono molto simili, ma il provider non garantisce un output uguale parola per parola. In `full` la variazione è voluta.
 - Nessuna memoria tra le domande: ogni query è indipendente.

@@ -83,7 +83,7 @@ interactiveQuery() {
         return 1
     fi
 
-    askExtraArgs "--category {note,programma}  --mode {strict,standard,full}  --top-k N  --min-sim X  --temperature X  --show-chunks"
+    askExtraArgs "--category {note,programma}  --mode {strict,standard,full}  --top-k N  --min-sim X  --temperature X  --show-chunks  --rerank  --rerank-min X  --pool N"
     runCommand query "$question" "${EXTRA_ARGS[@]}"
 }
 

@@ -16,10 +16,12 @@ Stato del progetto e prossimi passi. Per cosa fa oggi il sistema e come si usa v
 - [x] `min_sim` di default legato alla categoria, con `--min-sim` come override
 - [x] Temperatura legata alla modalità, con `--temperature` come override
 - [x] Comando `eval` per calibrare le soglie su domande etichettate
+- [x] Re-ranking opzionale con cross-encoder (`--rerank`), con soglie per categoria calibrate con `eval --rerank`
 
 ## Prossimo step
 
-- [ ] Re-ranking dei chunk recuperati (la soglia da sola non separa i casi vicini per tema o i falsi positivi in `note`)
+- [ ] Decidere se il re-ranking diventa il default (almeno per `note`) e come evitare di ricaricare il modello a ogni query (vedi REPL)
+- [ ] Ampliare le domande di `eval` per rendere più solide le soglie del re-ranker (margine stretto in `note`)
 
 ## Secondari
 

@@ -13,16 +13,18 @@ from search import search
 from generation import createClient, generateAnswer
 from readers import readFile
 from evaluation import loadQuestions, groupByCategory, scoreQuestions, summarize, printReport, RERANK_SWEEP
-from reranking import loadReranker
+from reranking import loadReranker, rerank
 
 CATEGORY_MODELS = {
     "note": {
         "model": "paraphrase-multilingual-mpnet-base-v2",
-        "min_sim": 0.4
+        "min_sim": 0.4,
+        "rerank_min": 0.06
     },
     "programma": {
         "model": "intfloat/multilingual-e5-large",
-        "min_sim": 0.8
+        "min_sim": 0.8,
+        "rerank_min": 0.02
     }
 }
 
@@ -140,6 +142,30 @@ query_parser.add_argument(
     help="Temperatura di generazione (0 = risposte più stabili e ripetibili, valori più alti = più variabili). "
          "Se omessa, dipende dalla modalità: strict 0.0, standard 0.3, full 0.6."
 )
+
+query_parser.add_argument(
+    "--rerank",
+    action="store_true",
+    help="Riordina i candidati con un cross-encoder (BAAI/bge-reranker-v2-m3) e scarta quelli sotto --rerank-min. "
+         "Più preciso ma più lento."
+         "Con questa opzione --min-sim viene ignorato."
+)
+
+query_parser.add_argument(
+    "--rerank-min",
+    type=float,
+    default=None,
+    help="Soglia minima (0-1) sul punteggio del re-ranker. Se omessa, si usa quella calibrata per la categoria. "
+         "Indica 0 per vedere tutti i risultati. Non è confrontabile con --min-sim."
+)
+
+query_parser.add_argument(
+    "--pool",
+    type=int,
+    default=20,
+    help="Con --rerank: numero di candidati recuperati dalla ricerca e passati al re-ranker (default: 20)."
+)
+
 
 #
 # eval command
@@ -271,7 +297,15 @@ elif args.command == "query":
         sys.exit(0)
 
     start_time = time.time()
-    result = search(embed_query[0], chunks, args.top_k, min_sim)
+
+    if args.rerank:
+        rerank_min = args.rerank_min if args.rerank_min is not None else CATEGORY_MODELS[category]["rerank_min"]
+        reranker = loadReranker()
+        candidates = search(embed_query[0], chunks, max(args.pool, args.top_k), -1.0)
+        reranked = rerank(reranker, query, candidates, args.top_k)
+        result = [chunk for chunk in reranked if chunk[1] >= rerank_min]
+    else:
+        result = search(embed_query[0], chunks, args.top_k, min_sim)
 
     if args.show_chunks:
         print(result)
